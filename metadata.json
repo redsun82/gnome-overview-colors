@@ -1,0 +1,8 @@
+{
+    "uuid": "gnome-colorer@redsun82.github.io",
+    "name": "Window Colorer",
+    "description": "Add colored shades to windows in the overview for quick identification",
+    "shell-version": ["45", "46", "47", "48"],
+    "url": "https://github.com/redsun82/gnome-colorer",
+    "settings-schema": "org.gnome.shell.extensions.gnome-colorer"
+}

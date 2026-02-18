@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.gnome-colorer"
+          path="/org/gnome/shell/extensions/gnome-colorer/">
+
+    <!-- JSON array of rule objects: [{"wm_class": "...", "title_pattern": "..."}] -->
+    <key name="rules" type="s">
+      <default>'[]'</default>
+      <summary>Window matching rules</summary>
+      <description>
+        JSON array of rule objects. Each rule has:
+        - "wm_class": regex matched against WM_CLASS
+        - "title_pattern": regex with a capture group; captured text is the identity for color hashing
+      </description>
+    </key>
+
+    <!-- JSON object mapping "wm_class:identity" → "#rrggbb" -->
+    <key name="color-overrides" type="s">
+      <default>'{}'</default>
+      <summary>Manual color overrides</summary>
+      <description>
+        JSON object mapping override keys ("wm_class:identity") to hex color strings ("#rrggbb").
+        These take precedence over hash-based colors.
+      </description>
+    </key>
+
+  </schema>
+</schemalist>
