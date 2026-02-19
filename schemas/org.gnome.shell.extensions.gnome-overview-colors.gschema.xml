@@ -24,5 +24,13 @@
       </description>
     </key>
 
+    <key name="debug-logs" type="b">
+      <default>false</default>
+      <summary>Enable debug logging</summary>
+      <description>
+        When enabled, the extension outputs detailed debug logs to the journal.
+      </description>
+    </key>
+
   </schema>
 </schemalist>

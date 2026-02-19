@@ -3,6 +3,7 @@
  * Uses libadwaita (Adw) widgets for GNOME 45+.
  */
 import Adw from 'gi://Adw';
+import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk';
 
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
@@ -10,6 +11,25 @@ import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/ex
 export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
+
+        // --- General page ---
+        const generalPage = new Adw.PreferencesPage({
+            title: 'General',
+            icon_name: 'preferences-system-symbolic',
+        });
+        window.add(generalPage);
+
+        const debugGroup = new Adw.PreferencesGroup({
+            title: 'Debugging',
+        });
+        generalPage.add(debugGroup);
+
+        const debugRow = new Adw.SwitchRow({
+            title: 'Debug Logs',
+            subtitle: 'Output detailed debug logs to the journal',
+        });
+        settings.bind('debug-logs', debugRow, 'active', Gio.SettingsBindFlags.DEFAULT);
+        debugGroup.add(debugRow);
 
         // --- Rules page ---
         const rulesPage = new Adw.PreferencesPage({
@@ -24,39 +44,7 @@ export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
         });
         rulesPage.add(rulesGroup);
 
-        // Preset button
-        const presetRow = new Adw.ActionRow({
-            title: 'Quick Presets',
-        });
-        const vscodeBtn = new Gtk.Button({
-            label: 'Add VS Code Rule',
-            valign: Gtk.Align.CENTER,
-        });
-        vscodeBtn.connect('clicked', () => {
-            const rules = this._loadJson(settings, 'rules', []);
-            if (!rules.some(r => r.wm_class === '^code$'))
-                rules.push({wm_class: '^code$', title_pattern: '— (.+?) —'});
-            settings.set_string('rules', JSON.stringify(rules));
-            this._rebuildRulesList(settings, rulesGroup, presetRow);
-        });
-        presetRow.add_suffix(vscodeBtn);
-
-        const codeInsidersBtn = new Gtk.Button({
-            label: 'Add Code Insiders Rule',
-            valign: Gtk.Align.CENTER,
-        });
-        codeInsidersBtn.connect('clicked', () => {
-            const rules = this._loadJson(settings, 'rules', []);
-            if (!rules.some(r => r.wm_class === '^code-insiders$'))
-                rules.push({wm_class: '^code-insiders$', title_pattern: '— (.+?) —'});
-            settings.set_string('rules', JSON.stringify(rules));
-            this._rebuildRulesList(settings, rulesGroup, presetRow);
-        });
-        presetRow.add_suffix(codeInsidersBtn);
-
-        rulesGroup.add(presetRow);
-
-        this._rebuildRulesList(settings, rulesGroup, presetRow);
+        this._rebuildRulesList(settings, rulesGroup);
 
         // Add rule button
         const addGroup = new Adw.PreferencesGroup();
@@ -70,7 +58,7 @@ export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
             const rules = this._loadJson(settings, 'rules', []);
             rules.push({wm_class: '', title_pattern: ''});
             settings.set_string('rules', JSON.stringify(rules));
-            this._rebuildRulesList(settings, rulesGroup, presetRow);
+            this._rebuildRulesList(settings, rulesGroup);
         });
         addRow.add_suffix(addBtn);
         addGroup.add(addRow);
@@ -120,7 +108,7 @@ export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
         }
     }
 
-    _rebuildRulesList(settings, group, presetRow) {
+    _rebuildRulesList(settings, group) {
         for (const row of this._ruleRows ?? [])
             group.remove(row);
         this._ruleRows = [];
@@ -184,7 +172,7 @@ export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
                 const current = this._loadJson(settings, 'rules', []);
                 current.splice(index, 1);
                 settings.set_string('rules', JSON.stringify(current));
-                this._rebuildRulesList(settings, group, presetRow);
+                this._rebuildRulesList(settings, group);
             });
             deleteRow.add_suffix(deleteBtn);
             row.add_row(deleteRow);
