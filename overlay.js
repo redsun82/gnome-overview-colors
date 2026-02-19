@@ -18,7 +18,6 @@ function buildStyle(r, g, b) {
     return [
         `background-color: rgba(${r}, ${g}, ${b}, 0.12)`,
         `box-shadow: 0 0 30px 10px rgba(${r}, ${g}, ${b}, 0.45)`,
-        `border: 2px solid rgba(${r}, ${g}, ${b}, 0.6)`,
         `border-radius: 12px`,
     ].join('; ');
 }
