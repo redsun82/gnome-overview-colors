@@ -25,8 +25,8 @@ const _scaleSync = new WeakMap();
  */
 function buildStyle(r, g, b, emphasis = 0) {
   const tintAlpha = 0.12 + 0.05 * emphasis;
-  const auraBlur = 30 + 10 * emphasis;
-  const auraSpread = 10 + 4 * emphasis;
+  const auraBlur = 20 + 8 * emphasis;
+  const auraSpread = 6 + 3 * emphasis;
   const auraAlpha = 0.45 + 0.15 * emphasis;
 
   return [
@@ -112,6 +112,8 @@ export function createOverlay(windowPreview, color) {
       coordinate: Clutter.BindCoordinate.SIZE,
     }),
   );
+
+  _syncOverlayScale(overlay, container, color);
 
   debug(`${TAG} overlay added to windowPreview, bound to container`);
 
