@@ -8,10 +8,12 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import * as ColorManager from './colorManager.js';
 import * as Overlay from './overlay.js';
+import {debug} from './log.js';
 
 const MENU_KEY = Symbol('gnome-overview-colors-menu');
 const ANCHOR_KEY = Symbol('gnome-overview-colors-anchor');
-const CATCHER_KEY = Symbol('gnome-overview-colors-catcher');
+const CLICK_HANDLER_KEY = Symbol('gnome-overview-colors-click-handler');
+const TAG = '[overview-colors/context-menu]';
 
 const _openMenus = new Set();
 
@@ -41,6 +43,25 @@ function _openAtCursor(menu, anchor, event) {
     const [x, y] = event.get_coords();
     anchor.set_position(x, y);
     menu.open();
+}
+
+function _connectSecondaryClick(windowPreview, menu, anchor) {
+    if (windowPreview[CLICK_HANDLER_KEY])
+        return;
+
+    debug(`${TAG} connect secondary-click handler on ${windowPreview}`);
+    // Use captured-event (capture phase, top-down) so we intercept right-clicks
+    // before child actors consume them, without adding reactive widgets that
+    // interfere with hover.
+    windowPreview[CLICK_HANDLER_KEY] = windowPreview.connect('captured-event', (_actor, event) => {
+        if (event.type() !== Clutter.EventType.BUTTON_PRESS)
+            return Clutter.EVENT_PROPAGATE;
+        if (event.get_button() !== Clutter.BUTTON_SECONDARY)
+            return Clutter.EVENT_PROPAGATE;
+        debug(`${TAG} secondary click on WindowPreview -> open menu`);
+        _openAtCursor(menu, anchor, event);
+        return Clutter.EVENT_STOP;
+    });
 }
 
 // Predefined palette of 10 distinguishable colors
@@ -124,18 +145,7 @@ export function attachMenu(windowPreview, metaWindow, colorInfo, settings) {
             Overlay.removeOverlay(windowPreview);
     });
 
-    // Right-click on the overlay widget itself
-    const overlay = Overlay.getOverlay(windowPreview);
-    if (overlay) {
-        overlay.reactive = true;
-        overlay.connect('button-press-event', (_actor, event) => {
-            if (event.get_button() === Clutter.BUTTON_SECONDARY) {
-                _openAtCursor(menu, anchor, event);
-                return Clutter.EVENT_STOP;
-            }
-            return Clutter.EVENT_PROPAGATE;
-        });
-    }
+    _connectSecondaryClick(windowPreview, menu, anchor);
 
     windowPreview.connect('destroy', () => removeMenu(windowPreview));
 }
@@ -226,31 +236,7 @@ export function attachCreateRuleMenu(windowPreview, metaWindow, settings) {
         settings.set_string('rules', JSON.stringify(rules));
     });
 
-    // Transparent click-catcher over window_container for right-click
-    const container = windowPreview.window_container;
-    if (container) {
-        const catcher = new St.Widget({
-            reactive: true,
-            style: 'background-color: transparent;',
-        });
-        windowPreview.add_child(catcher);
-        catcher.add_constraint(new Clutter.BindConstraint({
-            source: container,
-            coordinate: Clutter.BindCoordinate.POSITION,
-        }));
-        catcher.add_constraint(new Clutter.BindConstraint({
-            source: container,
-            coordinate: Clutter.BindCoordinate.SIZE,
-        }));
-        catcher.connect('button-press-event', (_actor, event) => {
-            if (event.get_button() === Clutter.BUTTON_SECONDARY) {
-                _openAtCursor(menu, anchor, event);
-                return Clutter.EVENT_STOP;
-            }
-            return Clutter.EVENT_PROPAGATE;
-        });
-        windowPreview[CATCHER_KEY] = catcher;
-    }
+    _connectSecondaryClick(windowPreview, menu, anchor);
 
     windowPreview.connect('destroy', () => removeMenu(windowPreview));
 }
@@ -269,10 +255,11 @@ export function removeMenu(windowPreview) {
         anchor.destroy();
         delete windowPreview[ANCHOR_KEY];
     }
-    const catcher = windowPreview[CATCHER_KEY];
-    if (catcher) {
-        catcher.destroy();
-        delete windowPreview[CATCHER_KEY];
+    const clickHandlerId = windowPreview[CLICK_HANDLER_KEY];
+    if (clickHandlerId) {
+        debug(`${TAG} disconnect secondary-click handler on ${windowPreview}`);
+        windowPreview.disconnect(clickHandlerId);
+        delete windowPreview[CLICK_HANDLER_KEY];
     }
 }
 
