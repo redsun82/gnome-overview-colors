@@ -23,8 +23,15 @@ Supports **GNOME Shell 45–48**.
 
 ## Installation
 
+Install from GitHub Releases:
+
 ```sh
-make install   # packs a zip and installs via gnome-extensions install
+# Download the latest release package
+curl -fL -o gnome-overview-colors.zip \
+  https://github.com/redsun82/gnome-overview-colors/releases/latest/download/gnome-overview-colors@redsun82.github.io.zip
+
+# Install (use --force to replace an existing install)
+gnome-extensions install --force gnome-overview-colors.zip
 ```
 
 Then enable the extension:
