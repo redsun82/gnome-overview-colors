@@ -3,9 +3,9 @@
  * assignment via hashing.
  */
 
-import {debug} from './log.js';
+import { debug } from "./log.js";
 
-const TAG = '[overview-colors/color]';
+const TAG = "[overview-colors/color]";
 
 /**
  * Match a Meta.Window against a list of rules.
@@ -16,53 +16,59 @@ const TAG = '[overview-colors/color]';
  * @returns {{identity: string, wmClass: string} | null}
  */
 export function matchWindow(metaWindow, rules) {
-    const wmClass = metaWindow.get_wm_class();
-    const title = metaWindow.get_title();
-    debug(`${TAG} matchWindow: wmClass="${wmClass}", title="${title}", rules=${rules.length}`);
-    if (!wmClass || !title) {
-        debug(`${TAG} matchWindow: no wmClass or title, returning null`);
-        return null;
-    }
-
-    for (const rule of rules) {
-        let classRe;
-        try {
-            classRe = new RegExp(rule.wm_class, 'i');
-        } catch (e) {
-            debug(`${TAG} invalid wm_class regex "${rule.wm_class}": ${/** @type {Error} */ (e).message}`);
-            continue;
-        }
-        if (!classRe.test(wmClass)) {
-            debug(`${TAG} wmClass "${wmClass}" did not match /${rule.wm_class}/i`);
-            continue;
-        }
-
-        // Empty title_pattern: match all windows, use wmClass as identity
-        if (!rule.title_pattern) {
-            debug(`${TAG} empty title_pattern, using wmClass as identity`);
-            return {identity: wmClass, wmClass};
-        }
-
-        let titleRe;
-        try {
-            titleRe = new RegExp(rule.title_pattern);
-        } catch (e) {
-            debug(`${TAG} invalid title_pattern regex "${rule.title_pattern}": ${/** @type {Error} */ (e).message}`);
-            continue;
-        }
-        const m = title.match(titleRe);
-        if (!m) {
-            debug(`${TAG} title did not match /${rule.title_pattern}/`);
-            continue;
-        }
-
-        // Use first capture group as identity, fall back to full match
-        const identity = m[1] ?? m[0];
-        debug(`${TAG} matched! identity="${identity}", wmClass="${wmClass}"`);
-        return {identity, wmClass};
-    }
-    debug(`${TAG} no rule matched`);
+  const wmClass = metaWindow.get_wm_class();
+  const title = metaWindow.get_title();
+  debug(
+    `${TAG} matchWindow: wmClass="${wmClass}", title="${title}", rules=${rules.length}`,
+  );
+  if (!wmClass || !title) {
+    debug(`${TAG} matchWindow: no wmClass or title, returning null`);
     return null;
+  }
+
+  for (const rule of rules) {
+    let classRe;
+    try {
+      classRe = new RegExp(rule.wm_class, "i");
+    } catch (e) {
+      debug(
+        `${TAG} invalid wm_class regex "${rule.wm_class}": ${/** @type {Error} */ (e).message}`,
+      );
+      continue;
+    }
+    if (!classRe.test(wmClass)) {
+      debug(`${TAG} wmClass "${wmClass}" did not match /${rule.wm_class}/i`);
+      continue;
+    }
+
+    // Empty title_pattern: match all windows, use wmClass as identity
+    if (!rule.title_pattern) {
+      debug(`${TAG} empty title_pattern, using wmClass as identity`);
+      return { identity: wmClass, wmClass };
+    }
+
+    let titleRe;
+    try {
+      titleRe = new RegExp(rule.title_pattern);
+    } catch (e) {
+      debug(
+        `${TAG} invalid title_pattern regex "${rule.title_pattern}": ${/** @type {Error} */ (e).message}`,
+      );
+      continue;
+    }
+    const m = title.match(titleRe);
+    if (!m) {
+      debug(`${TAG} title did not match /${rule.title_pattern}/`);
+      continue;
+    }
+
+    // Use first capture group as identity, fall back to full match
+    const identity = m[1] ?? m[0];
+    debug(`${TAG} matched! identity="${identity}", wmClass="${wmClass}"`);
+    return { identity, wmClass };
+  }
+  debug(`${TAG} no rule matched`);
+  return null;
 }
 
 /**
@@ -70,10 +76,10 @@ export function matchWindow(metaWindow, rules) {
  * @param {string} str
  */
 function djb2(str) {
-    let hash = 5381;
-    for (let i = 0; i < str.length; i++)
-        hash = ((hash << 5) + hash + str.charCodeAt(i)) >>> 0;
-    return hash;
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++)
+    hash = ((hash << 5) + hash + str.charCodeAt(i)) >>> 0;
+  return hash;
 }
 
 /**
@@ -83,21 +89,21 @@ function djb2(str) {
  * @param {number} l
  */
 function hslToRgb(h, s, l) {
-    const c = (1 - Math.abs(2 * l - 1)) * s;
-    const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-    const m = l - c / 2;
-    let r, g, b;
-    if (h < 60)       [r, g, b] = [c, x, 0];
-    else if (h < 120) [r, g, b] = [x, c, 0];
-    else if (h < 180) [r, g, b] = [0, c, x];
-    else if (h < 240) [r, g, b] = [0, x, c];
-    else if (h < 300) [r, g, b] = [x, 0, c];
-    else              [r, g, b] = [c, 0, x];
-    return {
-        r: Math.round((r + m) * 255),
-        g: Math.round((g + m) * 255),
-        b: Math.round((b + m) * 255),
-    };
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  let r, g, b;
+  if (h < 60) [r, g, b] = [c, x, 0];
+  else if (h < 120) [r, g, b] = [x, c, 0];
+  else if (h < 180) [r, g, b] = [0, c, x];
+  else if (h < 240) [r, g, b] = [0, x, c];
+  else if (h < 300) [r, g, b] = [x, 0, c];
+  else [r, g, b] = [c, 0, x];
+  return {
+    r: Math.round((r + m) * 255),
+    g: Math.round((g + m) * 255),
+    b: Math.round((b + m) * 255),
+  };
 }
 
 /**
@@ -108,8 +114,8 @@ function hslToRgb(h, s, l) {
  * @returns {{r: number, g: number, b: number}}
  */
 export function hashToColor(identity) {
-    const hue = djb2(identity) % 360;
-    return hslToRgb(hue, 0.65, 0.55);
+  const hue = djb2(identity) % 360;
+  return hslToRgb(hue, 0.65, 0.55);
 }
 
 /**
@@ -117,11 +123,11 @@ export function hashToColor(identity) {
  * @param {string} hex
  */
 function parseHex(hex) {
-    return {
-        r: parseInt(hex.slice(1, 3), 16),
-        g: parseInt(hex.slice(3, 5), 16),
-        b: parseInt(hex.slice(5, 7), 16),
-    };
+  return {
+    r: parseInt(hex.slice(1, 3), 16),
+    g: parseInt(hex.slice(3, 5), 16),
+    b: parseInt(hex.slice(5, 7), 16),
+  };
 }
 
 /**
@@ -133,19 +139,18 @@ function parseHex(hex) {
  * @returns {?{r: number, g: number, b: number, identity: string, wmClass: string}}
  */
 export function getColor(metaWindow, rules, overrides) {
-    const match = matchWindow(metaWindow, rules);
-    if (!match)
-        return null;
+  const match = matchWindow(metaWindow, rules);
+  if (!match) return null;
 
-    const {identity, wmClass} = match;
-    const key = `${wmClass}:${identity}`;
+  const { identity, wmClass } = match;
+  const key = `${wmClass}:${identity}`;
 
-    if (overrides[key]) {
-        debug(`${TAG} using override for "${key}": ${overrides[key]}`);
-        return {...parseHex(overrides[key]), identity, wmClass};
-    }
+  if (overrides[key]) {
+    debug(`${TAG} using override for "${key}": ${overrides[key]}`);
+    return { ...parseHex(overrides[key]), identity, wmClass };
+  }
 
-    const color = hashToColor(identity);
-    debug(`${TAG} hashed "${identity}" -> rgb(${color.r},${color.g},${color.b})`);
-    return {...color, identity, wmClass};
+  const color = hashToColor(identity);
+  debug(`${TAG} hashed "${identity}" -> rgb(${color.r},${color.g},${color.b})`);
+  return { ...color, identity, wmClass };
 }

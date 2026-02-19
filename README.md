@@ -7,16 +7,16 @@ Supports **GNOME Shell 45–48**.
 
 ## Features
 
-* **Rule-based matching** — define regex rules on `WM_CLASS` and window title to
+- **Rule-based matching** — define regex rules on `WM_CLASS` and window title to
   select which windows get colored
-* **Deterministic colors** — colors are assigned by hashing a stable identity
+- **Deterministic colors** — colors are assigned by hashing a stable identity
   extracted from the window (e.g. the VS Code workspace name), so the same
   window always gets the same color across sessions
-* **Manual overrides** — right-click a matched window in the overview to pick a
+- **Manual overrides** — right-click a matched window in the overview to pick a
   color from a 10-color palette; overrides are saved in GSettings
-* **Create rules from the overview** — right-click an *unmatched* window to
+- **Create rules from the overview** — right-click an _unmatched_ window to
   create a matching rule on the spot, with pre-filled `WM_CLASS` and title
-* **Hover emphasis** — the overlay tint and aura dynamically intensify when
+- **Hover emphasis** — the overlay tint and aura dynamically intensify when
   hovering over a window preview
 
 ## Installation
@@ -38,13 +38,13 @@ Wayland).
 
 ### Other Makefile targets
 
-| Target | Description |
-|--------|-------------|
-| `dev-install` | Compile schema + symlink source dir for development |
-| `uninstall` | Remove the extension |
-| `pack` | Build a distributable `.zip` |
-| `schema` | Compile the GSettings schema (run automatically by `install`/`dev-install`/`pack`) |
-| `clean` | Remove the built `.zip` |
+| Target        | Description                                                                        |
+| ------------- | ---------------------------------------------------------------------------------- |
+| `dev-install` | Compile schema + symlink source dir for development                                |
+| `uninstall`   | Remove the extension                                                               |
+| `pack`        | Build a distributable `.zip`                                                       |
+| `schema`      | Compile the GSettings schema (run automatically by `install`/`dev-install`/`pack`) |
+| `clean`       | Remove the built `.zip`                                                            |
 
 ## Configuration
 
@@ -59,6 +59,7 @@ The preferences UI has three pages:
 ### Rules
 
 A list of window-matching rules. Each rule has:
+
 - **WM_CLASS pattern** — regex matched against `WM_CLASS` (e.g. `^code$` for
   VS Code)
 - **Title pattern** — regex applied to the window title; the first **capture
