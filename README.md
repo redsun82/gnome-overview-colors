@@ -5,7 +5,7 @@ overview, helping you quickly identify windows at a glance.
 
 Supports **GNOME Shell 45–48**.
 
-![Screenshot](screenshot.png)
+![Screenshot](images/screenshot.png)
 
 ## Features
 
