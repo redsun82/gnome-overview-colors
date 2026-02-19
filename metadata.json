@@ -8,7 +8,7 @@
         "47",
         "48"
     ],
-    "version": 4,
+    "version": 5,
     "url": "https://github.com/redsun82/gnome-overview-colors",
     "settings-schema": "org.gnome.shell.extensions.gnome-overview-colors"
 }
