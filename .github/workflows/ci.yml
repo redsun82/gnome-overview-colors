@@ -24,3 +24,10 @@ jobs:
 
       - name: Pack extension
         run: make pack
+
+      - name: Upload extension zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-zip
+          path: gnome-overview-colors@redsun82.github.io.zip
+          retention-days: 3
