@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   bump:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     outputs:
       version: ${{ steps.bump.outputs.version }}
     steps:
@@ -38,7 +38,7 @@ jobs:
 
   release:
     needs: [bump, ci]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     steps:
       - uses: actions/download-artifact@v4
         with:
