@@ -31,3 +31,4 @@ jobs:
           name: extension-zip
           path: gnome-overview-colors@redsun82.github.io.zip
           retention-days: 3
+          compression-level: 0
