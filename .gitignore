@@ -1,4 +1,5 @@
 schemas/gschemas.compiled
+node_modules/
 *.zip
 *.swp
 *~

@@ -10,13 +10,18 @@ import * as ColorManager from './colorManager.js';
 import * as Overlay from './overlay.js';
 import {debug} from './log.js';
 
-const MENU_KEY = Symbol('gnome-overview-colors-menu');
-const ANCHOR_KEY = Symbol('gnome-overview-colors-anchor');
-const CLICK_HANDLER_KEY = Symbol('gnome-overview-colors-click-handler');
 const TAG = '[overview-colors/context-menu]';
+
+/** @type {WeakMap<WindowPreview, PopupMenu>} */
+const _menus = new WeakMap();
+/** @type {WeakMap<WindowPreview, StWidget>} */
+const _anchors = new WeakMap();
+/** @type {WeakMap<WindowPreview, number>} */
+const _clickHandlers = new WeakMap();
 
 const _openMenus = new Set();
 
+/** @param {string} str */
 function escapeRegex(str) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -24,16 +29,23 @@ function escapeRegex(str) {
 /**
  * Create a 1x1 invisible anchor on Main.uiGroup used as the menu source.
  * Moving this anchor before opening the menu makes it appear at the cursor.
+ * @param {WindowPreview} windowPreview
  */
 function _ensureAnchor(windowPreview) {
-    if (!windowPreview[ANCHOR_KEY]) {
-        const anchor = new St.Widget({width: 1, height: 1, visible: true});
+    let anchor = _anchors.get(windowPreview);
+    if (!anchor) {
+        anchor = new St.Widget({width: 1, height: 1, visible: true});
         Main.uiGroup.add_child(anchor);
-        windowPreview[ANCHOR_KEY] = anchor;
+        _anchors.set(windowPreview, anchor);
     }
-    return windowPreview[ANCHOR_KEY];
+    return anchor;
 }
 
+/**
+ * @param {PopupMenu} menu
+ * @param {StWidget} anchor
+ * @param {ClutterEvent} event
+ */
 function _openAtCursor(menu, anchor, event) {
     // Close any other open menus first
     for (const m of _openMenus) {
@@ -45,15 +57,20 @@ function _openAtCursor(menu, anchor, event) {
     menu.open();
 }
 
+/**
+ * @param {WindowPreview} windowPreview
+ * @param {PopupMenu} menu
+ * @param {StWidget} anchor
+ */
 function _connectSecondaryClick(windowPreview, menu, anchor) {
-    if (windowPreview[CLICK_HANDLER_KEY])
+    if (_clickHandlers.has(windowPreview))
         return;
 
     debug(`${TAG} connect secondary-click handler on ${windowPreview}`);
     // Use captured-event (capture phase, top-down) so we intercept right-clicks
     // before child actors consume them, without adding reactive widgets that
     // interfere with hover.
-    windowPreview[CLICK_HANDLER_KEY] = windowPreview.connect('captured-event', (_actor, event) => {
+    _clickHandlers.set(windowPreview, windowPreview.connect('captured-event', (/** @type {any} */ _actor, /** @type {ClutterEvent} */ event) => {
         if (event.type() !== Clutter.EventType.BUTTON_PRESS)
             return Clutter.EVENT_PROPAGATE;
         if (event.get_button() !== Clutter.BUTTON_SECONDARY)
@@ -61,7 +78,7 @@ function _connectSecondaryClick(windowPreview, menu, anchor) {
         debug(`${TAG} secondary click on WindowPreview -> open menu`);
         _openAtCursor(menu, anchor, event);
         return Clutter.EVENT_STOP;
-    });
+    }));
 }
 
 // Predefined palette of 10 distinguishable colors
@@ -78,6 +95,7 @@ const PALETTE = [
     {label: 'Pink',      hex: '#e06088'},
 ];
 
+/** @param {string} hex */
 function parseHex(hex) {
     return {
         r: parseInt(hex.slice(1, 3), 16),
@@ -90,9 +108,9 @@ function parseHex(hex) {
  * Attach a right-click context menu to a WindowPreview for color overrides.
  *
  * @param {WindowPreview} windowPreview
- * @param {Meta.Window} metaWindow
+ * @param {MetaWindow} metaWindow
  * @param {{identity: string, wmClass: string}} colorInfo - from getColor()
- * @param {Gio.Settings} settings
+ * @param {GioSettings} settings
  */
 export function attachMenu(windowPreview, metaWindow, colorInfo, settings) {
     removeMenu(windowPreview);
@@ -104,8 +122,9 @@ export function attachMenu(windowPreview, metaWindow, colorInfo, settings) {
     const menu = new PopupMenu.PopupMenu(anchor, 0.0, St.Side.TOP);
     Main.uiGroup.add_child(menu.actor);
     menu.actor.hide();
-    windowPreview[MENU_KEY] = menu;
+    _menus.set(windowPreview, menu);
     _openMenus.add(menu);
+    // @ts-ignore: 'destroy' signal exists at runtime but not in type defs
     menu.connect('destroy', () => _openMenus.delete(menu));
 
     // Add palette items with colored indicator
@@ -155,8 +174,8 @@ export function attachMenu(windowPreview, metaWindow, colorInfo, settings) {
  * Shows editable WM_CLASS and title pattern fields prefilled from the window.
  *
  * @param {WindowPreview} windowPreview
- * @param {Meta.Window} metaWindow
- * @param {Gio.Settings} settings
+ * @param {MetaWindow} metaWindow
+ * @param {GioSettings} settings
  */
 export function attachCreateRuleMenu(windowPreview, metaWindow, settings) {
     removeMenu(windowPreview);
@@ -168,8 +187,9 @@ export function attachCreateRuleMenu(windowPreview, metaWindow, settings) {
     const menu = new PopupMenu.PopupMenu(anchor, 0.0, St.Side.TOP);
     Main.uiGroup.add_child(menu.actor);
     menu.actor.hide();
-    windowPreview[MENU_KEY] = menu;
+    _menus.set(windowPreview, menu);
     _openMenus.add(menu);
+    // @ts-ignore: 'destroy' signal exists at runtime but not in type defs
     menu.connect('destroy', () => _openMenus.delete(menu));
 
     // Header
@@ -243,38 +263,53 @@ export function attachCreateRuleMenu(windowPreview, metaWindow, settings) {
 
 /**
  * Remove a previously attached context menu from a WindowPreview.
+ * @param {WindowPreview} windowPreview
  */
 export function removeMenu(windowPreview) {
-    const existing = windowPreview[MENU_KEY];
+    const existing = _menus.get(windowPreview);
     if (existing) {
         existing.destroy();
-        delete windowPreview[MENU_KEY];
+        _menus.delete(windowPreview);
     }
-    const anchor = windowPreview[ANCHOR_KEY];
+    const anchor = _anchors.get(windowPreview);
     if (anchor) {
         anchor.destroy();
-        delete windowPreview[ANCHOR_KEY];
+        _anchors.delete(windowPreview);
     }
-    const clickHandlerId = windowPreview[CLICK_HANDLER_KEY];
+    const clickHandlerId = _clickHandlers.get(windowPreview);
     if (clickHandlerId) {
         debug(`${TAG} disconnect secondary-click handler on ${windowPreview}`);
         windowPreview.disconnect(clickHandlerId);
-        delete windowPreview[CLICK_HANDLER_KEY];
+        _clickHandlers.delete(windowPreview);
     }
 }
 
+/**
+ * @param {GioSettings} settings
+ * @param {string} key
+ * @param {string} hex
+ */
 function _setOverride(settings, key, hex) {
     const overrides = _loadJson(settings, 'color-overrides', {});
     overrides[key] = hex;
     settings.set_string('color-overrides', JSON.stringify(overrides));
 }
 
+/**
+ * @param {GioSettings} settings
+ * @param {string} key
+ */
 function _clearOverride(settings, key) {
     const overrides = _loadJson(settings, 'color-overrides', {});
     delete overrides[key];
     settings.set_string('color-overrides', JSON.stringify(overrides));
 }
 
+/**
+ * @param {GioSettings} settings
+ * @param {string} key
+ * @param {any} fallback
+ */
 function _loadJson(settings, key, fallback) {
     try {
         return JSON.parse(settings.get_string(key));

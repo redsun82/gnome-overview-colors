@@ -9,7 +9,8 @@ import Gtk from 'gi://Gtk';
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
-    fillPreferencesWindow(window) {
+    /** @param {AdwPreferencesWindow} window */
+    async fillPreferencesWindow(window) {
         const settings = this.getSettings();
 
         // --- General page ---
@@ -100,6 +101,11 @@ export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
         });
     }
 
+    /**
+     * @param {GioSettings} settings
+     * @param {string} key
+     * @param {any} fallback
+     */
     _loadJson(settings, key, fallback) {
         try {
             return JSON.parse(settings.get_string(key));
@@ -108,14 +114,19 @@ export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
         }
     }
 
+    /**
+     * @param {GioSettings} settings
+     * @param {AdwPreferencesGroup} group
+     */
     _rebuildRulesList(settings, group) {
         for (const row of this._ruleRows ?? [])
             group.remove(row);
+        /** @type {any[]} */
         this._ruleRows = [];
 
         const rules = this._loadJson(settings, 'rules', []);
 
-        rules.forEach((rule, index) => {
+        rules.forEach((/** @type {any} */ rule, /** @type {number} */ index) => {
             const row = new Adw.ExpanderRow({
                 title: rule.wm_class || '(empty WM_CLASS)',
                 subtitle: rule.title_pattern || '(empty title pattern)',
@@ -178,13 +189,18 @@ export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
             row.add_row(deleteRow);
 
             group.add(row);
-            this._ruleRows.push(row);
+            this._ruleRows?.push(row);
         });
     }
 
+    /**
+     * @param {GioSettings} settings
+     * @param {AdwPreferencesGroup} group
+     */
     _rebuildOverridesList(settings, group) {
         for (const row of this._overrideRows ?? [])
             group.remove(row);
+        /** @type {any[]} */
         this._overrideRows = [];
 
         const overrides = this._loadJson(settings, 'color-overrides', {});
@@ -201,7 +217,7 @@ export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
         }
 
         for (const key of keys) {
-            const hex = overrides[key];
+            const hex = /** @type {string} */ (overrides[key]);
             const row = new Adw.ActionRow({
                 title: key,
                 subtitle: hex,
@@ -236,6 +252,7 @@ export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
         }
     }
 
+    /** @param {GtkEntry} entry */
     _addRegexValidation(entry) {
         entry.connect('changed', () => {
             const text = entry.get_text();
@@ -252,6 +269,7 @@ export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
         });
     }
 
+    /** @param {string} hex */
     _parseHex(hex) {
         return {
             r: parseInt(hex.slice(1, 3), 16),

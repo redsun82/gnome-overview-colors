@@ -18,7 +18,7 @@ export default class GnomeOverviewColorsExtension extends Extension {
         this._settings = this.getSettings();
         setDebugEnabled(this._settings.get_boolean('debug-logs'));
         this._debugChangedId = this._settings.connect('changed::debug-logs', () => {
-            setDebugEnabled(this._settings.get_boolean('debug-logs'));
+            setDebugEnabled(this._settings?.get_boolean('debug-logs') ?? false);
         });
 
         debug(`${TAG} enable() called`);
@@ -43,10 +43,11 @@ export default class GnomeOverviewColorsExtension extends Extension {
         // Monkey-patch Workspace._addWindowClone
         this._origAddWindowClone = Workspace.prototype._addWindowClone;
         const ext = this;
+        /** @type {(metaWindow: MetaWindow) => WindowPreview} */
         Workspace.prototype._addWindowClone = function (metaWindow) {
             debug(`${TAG} _addWindowClone called for: wm_class=${metaWindow.get_wm_class()}, title="${metaWindow.get_title()}"`);
             const nBefore = this._windows?.length ?? 0;
-            const ret = ext._origAddWindowClone.call(this, metaWindow);
+            const ret = ext._origAddWindowClone?.call(this, metaWindow);
             const nAfter = this._windows?.length ?? 0;
             debug(`${TAG} _addWindowClone returned: ${ret} (type=${typeof ret}), _windows: ${nBefore} -> ${nAfter}`);
 
@@ -58,19 +59,19 @@ export default class GnomeOverviewColorsExtension extends Extension {
                 try {
                     ext._applyOverlay(preview, metaWindow);
                 } catch (e) {
-                    console.error(`${TAG} _applyOverlay error: ${e.message}\n${e.stack}`);
+                    console.error(`${TAG} _applyOverlay error: ${/** @type {Error} */ (e).message}\n${/** @type {Error} */ (e).stack}`);
                 }
             } else {
                 debug(`${TAG} could not find preview for ${metaWindow.get_wm_class()}`);
             }
 
-            return ret;
+            return /** @type {WindowPreview} */ (ret);
         };
         debug(`${TAG} monkey-patch installed`);
 
         // Hide overlays immediately when the overview starts closing
         this._overviewHidingId = Main.overview.connect('hiding', () => {
-            for (const preview of this._overlayPreviews) {
+            for (const preview of this._overlayPreviews ?? []) {
                 const overlay = Overlay.getOverlay(preview);
                 if (overlay)
                     overlay.hide();
@@ -87,23 +88,23 @@ export default class GnomeOverviewColorsExtension extends Extension {
         }
 
         // Destroy all overlays and menus
-        for (const preview of this._overlayPreviews) {
+        for (const preview of this._overlayPreviews ?? []) {
             Overlay.removeOverlay(preview);
             removeMenu(preview);
         }
-        this._overlayPreviews.clear();
+        this._overlayPreviews?.clear();
 
         // Disconnect signals
         if (this._debugChangedId) {
-            this._settings.disconnect(this._debugChangedId);
+            this._settings?.disconnect(this._debugChangedId);
             this._debugChangedId = null;
         }
         if (this._rulesChangedId) {
-            this._settings.disconnect(this._rulesChangedId);
+            this._settings?.disconnect(this._rulesChangedId);
             this._rulesChangedId = null;
         }
         if (this._overridesChangedId) {
-            this._settings.disconnect(this._overridesChangedId);
+            this._settings?.disconnect(this._overridesChangedId);
             this._overridesChangedId = null;
         }
         if (this._overviewHidingId) {
@@ -117,41 +118,49 @@ export default class GnomeOverviewColorsExtension extends Extension {
         this._overlayPreviews = null;
     }
 
+    /**
+     * @param {string} key
+     * @param {any} fallback
+     */
     _loadJson(key, fallback) {
         try {
-            return JSON.parse(this._settings.get_string(key));
+            return JSON.parse(this._settings?.get_string(key) ?? '');
         } catch (e) {
-            console.warn(`${TAG} failed to parse setting '${key}': ${e.message}`);
+            console.warn(`${TAG} failed to parse setting '${key}': ${/** @type {Error} */ (e).message}`);
             return fallback;
         }
     }
 
+    /**
+     * @param {WindowPreview} windowPreview
+     * @param {MetaWindow} metaWindow
+     */
     _applyOverlay(windowPreview, metaWindow) {
         debug(`${TAG} _applyOverlay: wm_class=${metaWindow.get_wm_class()}, title="${metaWindow.get_title()}"`);
         const color = ColorManager.getColor(metaWindow, this._rules, this._overrides);
         debug(`${TAG} _applyOverlay: color=${color ? JSON.stringify({r: color.r, g: color.g, b: color.b, identity: color.identity}) : 'null'}`);
-        this._overlayPreviews.add(windowPreview);
+        this._overlayPreviews?.add(windowPreview);
         windowPreview.connect('destroy', () => {
-            this._overlayPreviews.delete(windowPreview);
+            this._overlayPreviews?.delete(windowPreview);
         });
 
         if (color) {
             Overlay.createOverlay(windowPreview, color);
-            attachMenu(windowPreview, metaWindow, color, this._settings);
+            attachMenu(windowPreview, metaWindow, color, /** @type {GioSettings} */ (this._settings));
         } else {
             // Unmatched window: offer to create a rule via right-click
-            attachCreateRuleMenu(windowPreview, metaWindow, this._settings);
+            attachCreateRuleMenu(windowPreview, metaWindow, /** @type {GioSettings} */ (this._settings));
         }
     }
 
     _refreshAllOverlays() {
         debug(`${TAG} _refreshAllOverlays called`);
         // Remove all existing overlays and menus
-        for (const preview of this._overlayPreviews) {
+        for (const preview of this._overlayPreviews ?? []) {
             Overlay.removeOverlay(preview);
             removeMenu(preview);
         }
-        this._overlayPreviews.clear();
+        this._overlayPreviews?.clear();
 
         // Walk current workspace views and reapply
         const workspacesDisplay = Main.overview._overview?._controls?._workspacesDisplay;

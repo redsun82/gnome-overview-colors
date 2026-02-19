@@ -8,12 +8,20 @@ import St from 'gi://St';
 import {debug} from './log.js';
 
 const TAG = '[overview-colors/overlay]';
-const OVERLAY_KEY = Symbol('gnome-overview-colors-overlay');
-const OVERLAY_SCALE_SYNC_KEY = Symbol('gnome-overview-colors-overlay-scale-sync');
+
+/** @type {WeakMap<WindowPreview, StWidget>} */
+const _overlays = new WeakMap();
+
+/** @type {WeakMap<StWidget, {container: ClutterActor, signalIds: number[]}>} */
+const _scaleSync = new WeakMap();
 
 /**
  * Build an inline CSS style string for the given RGB color.
  * Produces a subtle tint, outward-bleeding aura (box-shadow), and solid border.
+ * @param {number} r
+ * @param {number} g
+ * @param {number} b
+ * @param {number} [emphasis]
  */
 function buildStyle(r, g, b, emphasis = 0) {
     const tintAlpha = 0.12 + 0.05 * emphasis;
@@ -28,6 +36,11 @@ function buildStyle(r, g, b, emphasis = 0) {
     ].join('; ');
 }
 
+/**
+ * @param {StWidget} overlay
+ * @param {ClutterActor} container
+ * @param {{r: number, g: number, b: number}} color
+ */
 function _syncOverlayScale(overlay, container, color) {
     const applyVisuals = () => {
         overlay.set_scale(container.scale_x, container.scale_y);
@@ -47,16 +60,16 @@ function _syncOverlayScale(overlay, container, color) {
         container.connect('notify::scale-y', applyVisuals),
     ];
 
-    overlay[OVERLAY_SCALE_SYNC_KEY] = {container, signalIds};
+    _scaleSync.set(overlay, {container, signalIds});
     overlay.connect('destroy', () => {
-        const syncInfo = overlay[OVERLAY_SCALE_SYNC_KEY];
+        const syncInfo = _scaleSync.get(overlay);
         if (!syncInfo)
             return;
 
         for (const signalId of syncInfo.signalIds)
             syncInfo.container.disconnect(signalId);
 
-        delete overlay[OVERLAY_SCALE_SYNC_KEY];
+        _scaleSync.delete(overlay);
     });
 }
 
@@ -95,11 +108,9 @@ export function createOverlay(windowPreview, color) {
         coordinate: Clutter.BindCoordinate.SIZE,
     }));
 
-    _syncOverlayScale(overlay, container, color);
-
     debug(`${TAG} overlay added to windowPreview, bound to container`);
 
-    windowPreview[OVERLAY_KEY] = overlay;
+    _overlays.set(windowPreview, overlay);
 }
 
 /**
@@ -108,24 +119,26 @@ export function createOverlay(windowPreview, color) {
  * @param {WindowPreview} windowPreview
  */
 export function removeOverlay(windowPreview) {
-    const existing = windowPreview[OVERLAY_KEY];
+    const existing = _overlays.get(windowPreview);
     if (existing) {
         debug(`${TAG} removeOverlay: removing existing overlay`);
         existing.destroy();
-        delete windowPreview[OVERLAY_KEY];
+        _overlays.delete(windowPreview);
     }
 }
 
 /**
  * Get the overlay widget from a WindowPreview, if any.
+ * @param {WindowPreview} windowPreview
  */
 export function getOverlay(windowPreview) {
-    return windowPreview[OVERLAY_KEY] ?? null;
+    return _overlays.get(windowPreview) ?? null;
 }
 
 /**
  * Check whether a WindowPreview currently has an overlay.
+ * @param {WindowPreview} windowPreview
  */
 export function hasOverlay(windowPreview) {
-    return !!windowPreview[OVERLAY_KEY];
+    return _overlays.has(windowPreview);
 }

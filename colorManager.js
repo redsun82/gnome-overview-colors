@@ -11,9 +11,9 @@ const TAG = '[overview-colors/color]';
  * Match a Meta.Window against a list of rules.
  * Returns the extracted identity string, or null if no rule matches.
  *
- * @param {Meta.Window} metaWindow
- * @param {Array<{wm_class: string, title_pattern: string}>} rules
- * @returns {?{identity: string, wmClass: string}}
+ * @param {MetaWindow} metaWindow
+ * @param {{wm_class: string, title_pattern: string}[]} rules
+ * @returns {{identity: string, wmClass: string} | null}
  */
 export function matchWindow(metaWindow, rules) {
     const wmClass = metaWindow.get_wm_class();
@@ -29,7 +29,7 @@ export function matchWindow(metaWindow, rules) {
         try {
             classRe = new RegExp(rule.wm_class, 'i');
         } catch (e) {
-            debug(`${TAG} invalid wm_class regex "${rule.wm_class}": ${e.message}`);
+            debug(`${TAG} invalid wm_class regex "${rule.wm_class}": ${/** @type {Error} */ (e).message}`);
             continue;
         }
         if (!classRe.test(wmClass)) {
@@ -47,7 +47,7 @@ export function matchWindow(metaWindow, rules) {
         try {
             titleRe = new RegExp(rule.title_pattern);
         } catch (e) {
-            debug(`${TAG} invalid title_pattern regex "${rule.title_pattern}": ${e.message}`);
+            debug(`${TAG} invalid title_pattern regex "${rule.title_pattern}": ${/** @type {Error} */ (e).message}`);
             continue;
         }
         const m = title.match(titleRe);
@@ -67,6 +67,7 @@ export function matchWindow(metaWindow, rules) {
 
 /**
  * djb2 hash of a string → unsigned 32-bit integer.
+ * @param {string} str
  */
 function djb2(str) {
     let hash = 5381;
@@ -77,6 +78,9 @@ function djb2(str) {
 
 /**
  * Convert HSL (h in [0,360], s/l in [0,1]) to RGB {r, g, b} in [0,255].
+ * @param {number} h
+ * @param {number} s
+ * @param {number} l
  */
 function hslToRgb(h, s, l) {
     const c = (1 - Math.abs(2 * l - 1)) * s;
@@ -110,6 +114,7 @@ export function hashToColor(identity) {
 
 /**
  * Parse a hex color string "#rrggbb" to {r, g, b}.
+ * @param {string} hex
  */
 function parseHex(hex) {
     return {
@@ -122,9 +127,9 @@ function parseHex(hex) {
 /**
  * Get the color for a window, considering overrides and hash-based assignment.
  *
- * @param {Meta.Window} metaWindow
- * @param {Array} rules
- * @param {Object<string, string>} overrides - map of "wmClass:identity" → "#rrggbb"
+ * @param {MetaWindow} metaWindow
+ * @param {{wm_class: string, title_pattern: string}[]} rules
+ * @param {Record<string, string>} overrides - map of "wmClass:identity" → "#rrggbb"
  * @returns {?{r: number, g: number, b: number, identity: string, wmClass: string}}
  */
 export function getColor(metaWindow, rules, overrides) {

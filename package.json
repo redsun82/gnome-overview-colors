@@ -1,0 +1,25 @@
+{
+  "name": "gnome-overview-colors",
+  "version": "1.0.0",
+  "description": "A GNOME Shell extension that adds colored shades to window thumbnails in the overview, helping you quickly identify windows at a glance.",
+  "main": "colorManager.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/redsun82/gnome-overview-colors.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/redsun82/gnome-overview-colors/issues"
+  },
+  "homepage": "https://github.com/redsun82/gnome-overview-colors#readme",
+  "devDependencies": {
+    "@girs/gnome-shell": "^48.0.4",
+    "typescript": "^5.9.3"
+  }
+}
