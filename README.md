@@ -91,4 +91,4 @@ can be cleared individually, or all overrides can be cleared at once.
 
 ## License
 
-GPL-3.0
+MIT
