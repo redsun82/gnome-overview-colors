@@ -67,6 +67,15 @@ export default class GnomeOverviewColorsExtension extends Extension {
             return ret;
         };
         debug(`${TAG} monkey-patch installed`);
+
+        // Hide overlays immediately when the overview starts closing
+        this._overviewHidingId = Main.overview.connect('hiding', () => {
+            for (const preview of this._overlayPreviews) {
+                const overlay = Overlay.getOverlay(preview);
+                if (overlay)
+                    overlay.hide();
+            }
+        });
     }
 
     disable() {
@@ -96,6 +105,10 @@ export default class GnomeOverviewColorsExtension extends Extension {
         if (this._overridesChangedId) {
             this._settings.disconnect(this._overridesChangedId);
             this._overridesChangedId = null;
+        }
+        if (this._overviewHidingId) {
+            Main.overview.disconnect(this._overviewHidingId);
+            this._overviewHidingId = null;
         }
 
         this._settings = null;
