@@ -20,6 +20,8 @@ Supports **GNOME Shell 45–48**.
   create a matching rule on the spot, with pre-filled `WM_CLASS` and title
 - **Hover emphasis** — the overlay tint and aura dynamically intensify when
   hovering over a window preview
+- **Alt+Tab coloring** — matched windows also get a colored tint and border in
+  the Alt+Tab window switcher
 
 ## Installation
 

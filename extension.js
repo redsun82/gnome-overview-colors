@@ -4,6 +4,7 @@
  */
 import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 import { Workspace } from "resource:///org/gnome/shell/ui/workspace.js";
+import * as AltTab from "resource:///org/gnome/shell/ui/altTab.js";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 
 import * as ColorManager from "./colorManager.js";
@@ -89,6 +90,45 @@ export default class GnomeOverviewColorsExtension extends Extension {
         if (overlay) overlay.hide();
       }
     });
+
+    // Monkey-patch Alt+Tab popup classes (stable exported API)
+    this._windowSwitcherCtor = AltTab.WindowSwitcherPopup;
+    if (this._windowSwitcherCtor?.prototype?._init) {
+      this._origWindowSwitcherInit = this._windowSwitcherCtor.prototype._init;
+      this._windowSwitcherCtor.prototype._init = function () {
+        /** @type {any} */ (ext._origWindowSwitcherInit).apply(this, arguments);
+        try {
+          ext._applyAltTabStylesInPopup(this);
+        } catch (e) {
+          debug(
+            `${TAG} WindowSwitcherPopup color error: ${/** @type {Error} */ (e).message}`,
+          );
+        }
+      };
+    } else {
+      debug(
+        `${TAG} AltTab.WindowSwitcherPopup not available; skipping Alt+Tab coloring`,
+      );
+    }
+
+    this._appSwitcherCtor = AltTab.AppSwitcherPopup;
+    if (this._appSwitcherCtor?.prototype?._init) {
+      this._origAppSwitcherInit = this._appSwitcherCtor.prototype._init;
+      this._appSwitcherCtor.prototype._init = function () {
+        /** @type {any} */ (ext._origAppSwitcherInit).apply(this, arguments);
+        try {
+          ext._applyAltTabStylesInPopup(this);
+        } catch (e) {
+          debug(
+            `${TAG} AppSwitcherPopup color error: ${/** @type {Error} */ (e).message}`,
+          );
+        }
+      };
+    } else {
+      debug(
+        `${TAG} AltTab.AppSwitcherPopup not available; skipping Alt+Tab coloring`,
+      );
+    }
   }
 
   disable() {
@@ -105,6 +145,18 @@ export default class GnomeOverviewColorsExtension extends Extension {
       removeMenu(preview);
     }
     this._overlayPreviews?.clear();
+
+    // Restore Alt+Tab monkey-patches
+    if (this._origWindowSwitcherInit && this._windowSwitcherCtor?.prototype) {
+      this._windowSwitcherCtor.prototype._init = this._origWindowSwitcherInit;
+      this._origWindowSwitcherInit = null;
+    }
+    if (this._origAppSwitcherInit && this._appSwitcherCtor?.prototype) {
+      this._appSwitcherCtor.prototype._init = this._origAppSwitcherInit;
+      this._origAppSwitcherInit = null;
+    }
+    this._windowSwitcherCtor = null;
+    this._appSwitcherCtor = null;
 
     // Disconnect signals
     if (this._debugChangedId) {
@@ -181,6 +233,70 @@ export default class GnomeOverviewColorsExtension extends Extension {
         metaWindow,
         /** @type {GioSettings} */ (this._settings),
       );
+    }
+  }
+
+  /**
+   * Apply a colored tint + border to an Alt+Tab switcher item.
+   * The preview is a Clutter.Clone that cannot host overlay children,
+   * so we style the item container directly.
+   * @param {any} widget
+   * @param {{r: number, g: number, b: number}} color
+   */
+  _applyAltTabStyle(widget, color) {
+    widget.set_style(
+      [
+        `background-color: rgba(${color.r}, ${color.g}, ${color.b}, 0.28)`,
+        `border: 2px solid rgba(${color.r}, ${color.g}, ${color.b}, 0.85)`,
+        "border-radius: 12px",
+      ].join("; "),
+    );
+  }
+
+  /**
+   * Apply colors to items in an Alt+Tab popup instance.
+   * @param {any} popup
+   */
+  _applyAltTabStylesInPopup(popup) {
+    const seen = new Set();
+    const buckets = [
+      popup?._items,
+      popup?._appIcons,
+      popup?._windowIcons,
+      popup?._switcherList?._items,
+    ];
+
+    for (const bucket of buckets) {
+      if (!Array.isArray(bucket)) continue;
+      for (const item of bucket) {
+        if (!item || seen.has(item)) continue;
+        seen.add(item);
+
+        const metaWindow =
+          item.window ??
+          item.metaWindow ??
+          item._window ??
+          item.app?.get_windows?.()?.[0] ??
+          item._app?.get_windows?.()?.[0];
+
+        if (!metaWindow) continue;
+
+        const color = ColorManager.getColor(
+          metaWindow,
+          this._rules ?? [],
+          this._overrides ?? {},
+        );
+        if (!color) continue;
+
+        const widget =
+          typeof item.set_style === "function"
+            ? item
+            : typeof item.actor?.set_style === "function"
+              ? item.actor
+              : null;
+
+        if (widget) this._applyAltTabStyle(widget, color);
+      }
     }
   }
 
