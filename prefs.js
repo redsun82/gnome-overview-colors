@@ -13,30 +13,6 @@ export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
   async fillPreferencesWindow(window) {
     const settings = this.getSettings();
 
-    // --- General page ---
-    const generalPage = new Adw.PreferencesPage({
-      title: "General",
-      icon_name: "preferences-system-symbolic",
-    });
-    window.add(generalPage);
-
-    const debugGroup = new Adw.PreferencesGroup({
-      title: "Debugging",
-    });
-    generalPage.add(debugGroup);
-
-    const debugRow = new Adw.SwitchRow({
-      title: "Debug Logs",
-      subtitle: "Output detailed debug logs to the journal",
-    });
-    settings.bind(
-      "debug-logs",
-      debugRow,
-      "active",
-      Gio.SettingsBindFlags.DEFAULT,
-    );
-    debugGroup.add(debugRow);
-
     // --- Rules page ---
     const rulesPage = new Adw.PreferencesPage({
       title: "Rules",
@@ -76,6 +52,30 @@ export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
       icon_name: "preferences-color-symbolic",
     });
     window.add(overridesPage);
+
+    // --- General page ---
+    const generalPage = new Adw.PreferencesPage({
+      title: "General",
+      icon_name: "preferences-system-symbolic",
+    });
+    window.add(generalPage);
+
+    const debugGroup = new Adw.PreferencesGroup({
+      title: "Debugging",
+    });
+    generalPage.add(debugGroup);
+
+    const debugRow = new Adw.SwitchRow({
+      title: "Debug Logs",
+      subtitle: "Output detailed debug logs to the journal",
+    });
+    settings.bind(
+      "debug-logs",
+      debugRow,
+      "active",
+      Gio.SettingsBindFlags.DEFAULT,
+    );
+    debugGroup.add(debugRow);
 
     const overridesGroup = new Adw.PreferencesGroup({
       title: "Color Overrides",
