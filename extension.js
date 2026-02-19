@@ -8,9 +8,9 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import * as ColorManager from './colorManager.js';
 import * as Overlay from './overlay.js';
-import {attachMenu} from './contextMenu.js';
+import {attachMenu, removeMenu} from './contextMenu.js';
 
-export default class GnomeColorerExtension extends Extension {
+export default class GnomeOverviewColorsExtension extends Extension {
     enable() {
         this._settings = this.getSettings();
         this._rules = this._loadJson('rules', []);
@@ -34,11 +34,6 @@ export default class GnomeColorerExtension extends Extension {
             ext._applyOverlay(clone, metaWindow);
             return clone;
         };
-
-        // Also apply to any already-visible previews when enabled mid-session
-        this._overviewShowingId = Main.overview.connect('showing', () => {
-            this._refreshAllOverlays();
-        });
     }
 
     disable() {
@@ -48,9 +43,11 @@ export default class GnomeColorerExtension extends Extension {
             this._origAddWindowClone = null;
         }
 
-        // Destroy all overlays
-        for (const preview of this._overlayPreviews)
+        // Destroy all overlays and menus
+        for (const preview of this._overlayPreviews) {
             Overlay.removeOverlay(preview);
+            removeMenu(preview);
+        }
         this._overlayPreviews.clear();
 
         // Disconnect signals
@@ -61,10 +58,6 @@ export default class GnomeColorerExtension extends Extension {
         if (this._overridesChangedId) {
             this._settings.disconnect(this._overridesChangedId);
             this._overridesChangedId = null;
-        }
-        if (this._overviewShowingId) {
-            Main.overview.disconnect(this._overviewShowingId);
-            this._overviewShowingId = null;
         }
 
         this._settings = null;
@@ -97,9 +90,11 @@ export default class GnomeColorerExtension extends Extension {
     }
 
     _refreshAllOverlays() {
-        // Remove all existing overlays
-        for (const preview of this._overlayPreviews)
+        // Remove all existing overlays and menus
+        for (const preview of this._overlayPreviews) {
             Overlay.removeOverlay(preview);
+            removeMenu(preview);
+        }
         this._overlayPreviews.clear();
 
         // Walk current workspace views and reapply

@@ -9,6 +9,8 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as ColorManager from './colorManager.js';
 import * as Overlay from './overlay.js';
 
+const MENU_KEY = Symbol('gnome-overview-colors-menu');
+
 // Predefined palette of 10 distinguishable colors
 const PALETTE = [
     {label: 'Red',       hex: '#e84040'},
@@ -40,12 +42,15 @@ function parseHex(hex) {
  * @param {Gio.Settings} settings
  */
 export function attachMenu(windowPreview, metaWindow, colorInfo, settings) {
+    removeMenu(windowPreview);
+
     const {identity, wmClass} = colorInfo;
     const overrideKey = `${wmClass}:${identity}`;
 
     const menu = new PopupMenu.PopupMenu(windowPreview, 0.5, St.Side.TOP);
     Main.uiGroup.add_child(menu.actor);
     menu.actor.hide();
+    windowPreview[MENU_KEY] = menu;
 
     // Add palette items with colored indicator
     for (const {label, hex} of PALETTE) {
@@ -93,7 +98,18 @@ export function attachMenu(windowPreview, metaWindow, colorInfo, settings) {
         return Clutter.EVENT_PROPAGATE;
     });
 
-    windowPreview.connect('destroy', () => menu.destroy());
+    windowPreview.connect('destroy', () => removeMenu(windowPreview));
+}
+
+/**
+ * Remove a previously attached context menu from a WindowPreview.
+ */
+export function removeMenu(windowPreview) {
+    const existing = windowPreview[MENU_KEY];
+    if (existing) {
+        existing.destroy();
+        delete windowPreview[MENU_KEY];
+    }
 }
 
 function _setOverride(settings, key, hex) {

@@ -2,10 +2,9 @@
  * Overlay widget: creates and manages the colored tint + aura + border overlay
  * added to WindowPreview actors in the overview.
  */
-import Clutter from 'gi://Clutter';
 import St from 'gi://St';
 
-const OVERLAY_KEY = Symbol('gnome-colorer-overlay');
+const OVERLAY_KEY = Symbol('gnome-overview-colors-overlay');
 
 /**
  * Build an inline CSS style string for the given RGB color.
@@ -29,19 +28,15 @@ function buildStyle(r, g, b) {
 export function createOverlay(windowPreview, color) {
     removeOverlay(windowPreview);
 
+    const container = windowPreview.window_container;
     const overlay = new St.Widget({
         style: buildStyle(color.r, color.g, color.b),
         reactive: false,
+        x_expand: true,
+        y_expand: true,
     });
 
-    // Bind position and size to the window_container
-    overlay.add_constraint(new Clutter.BindConstraint({
-        source: windowPreview.window_container,
-        coordinate: Clutter.BindCoordinate.ALL,
-    }));
-
-    windowPreview.add_child(overlay);
-    windowPreview.set_child_above_sibling(overlay, windowPreview.window_container);
+    container.add_child(overlay);
 
     windowPreview[OVERLAY_KEY] = overlay;
 }

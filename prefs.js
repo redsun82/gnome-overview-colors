@@ -1,14 +1,13 @@
 /**
- * Preferences UI for the Window Colorer extension.
+ * Preferences UI for the Overview colors extension.
  * Uses libadwaita (Adw) widgets for GNOME 45+.
  */
 import Adw from 'gi://Adw';
 import Gtk from 'gi://Gtk';
-import Gio from 'gi://Gio';
 
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
-export default class GnomeColorerPrefs extends ExtensionPreferences {
+export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
 
@@ -35,13 +34,26 @@ export default class GnomeColorerPrefs extends ExtensionPreferences {
         });
         vscodeBtn.connect('clicked', () => {
             const rules = this._loadJson(settings, 'rules', []);
-            // Avoid duplicates
             if (!rules.some(r => r.wm_class === '^code$'))
                 rules.push({wm_class: '^code$', title_pattern: '— (.+?) —'});
             settings.set_string('rules', JSON.stringify(rules));
             this._rebuildRulesList(settings, rulesGroup, presetRow);
         });
         presetRow.add_suffix(vscodeBtn);
+
+        const codeInsidersBtn = new Gtk.Button({
+            label: 'Add Code Insiders Rule',
+            valign: Gtk.Align.CENTER,
+        });
+        codeInsidersBtn.connect('clicked', () => {
+            const rules = this._loadJson(settings, 'rules', []);
+            if (!rules.some(r => r.wm_class === '^code-insiders$'))
+                rules.push({wm_class: '^code-insiders$', title_pattern: '— (.+?) —'});
+            settings.set_string('rules', JSON.stringify(rules));
+            this._rebuildRulesList(settings, rulesGroup, presetRow);
+        });
+        presetRow.add_suffix(codeInsidersBtn);
+
         rulesGroup.add(presetRow);
 
         this._rebuildRulesList(settings, rulesGroup, presetRow);
@@ -94,12 +106,9 @@ export default class GnomeColorerPrefs extends ExtensionPreferences {
         clearAllRow.add_suffix(clearAllBtn);
         clearAllGroup.add(clearAllRow);
 
-        // Refresh overrides list when settings change
+        // Refresh overrides list when settings change (e.g. from right-click menu)
         settings.connect('changed::color-overrides', () => {
             this._rebuildOverridesList(settings, overridesGroup);
-        });
-        settings.connect('changed::rules', () => {
-            this._rebuildRulesList(settings, rulesGroup, presetRow);
         });
     }
 
@@ -112,14 +121,9 @@ export default class GnomeColorerPrefs extends ExtensionPreferences {
     }
 
     _rebuildRulesList(settings, group, presetRow) {
-        // Remove all children except the preset row
-        let child = group.get_first_child();
-        while (child) {
-            const next = child.get_next_sibling();
-            if (child !== presetRow)
-                group.remove(child);
-            child = next;
-        }
+        for (const row of this._ruleRows ?? [])
+            group.remove(row);
+        this._ruleRows = [];
 
         const rules = this._loadJson(settings, 'rules', []);
 
@@ -142,6 +146,7 @@ export default class GnomeColorerPrefs extends ExtensionPreferences {
                 if (current[index]) {
                     current[index].wm_class = classEntry.get_text();
                     settings.set_string('rules', JSON.stringify(current));
+                    row.title = classEntry.get_text() || '(empty WM_CLASS)';
                 }
             });
             this._addRegexValidation(classEntry);
@@ -161,6 +166,7 @@ export default class GnomeColorerPrefs extends ExtensionPreferences {
                 if (current[index]) {
                     current[index].title_pattern = titleEntry.get_text();
                     settings.set_string('rules', JSON.stringify(current));
+                    row.subtitle = titleEntry.get_text() || '(empty title pattern)';
                 }
             });
             this._addRegexValidation(titleEntry);
@@ -178,22 +184,20 @@ export default class GnomeColorerPrefs extends ExtensionPreferences {
                 const current = this._loadJson(settings, 'rules', []);
                 current.splice(index, 1);
                 settings.set_string('rules', JSON.stringify(current));
+                this._rebuildRulesList(settings, group, presetRow);
             });
             deleteRow.add_suffix(deleteBtn);
             row.add_row(deleteRow);
 
             group.add(row);
+            this._ruleRows.push(row);
         });
     }
 
     _rebuildOverridesList(settings, group) {
-        // Remove all children
-        let child = group.get_first_child();
-        while (child) {
-            const next = child.get_next_sibling();
-            group.remove(child);
-            child = next;
-        }
+        for (const row of this._overrideRows ?? [])
+            group.remove(row);
+        this._overrideRows = [];
 
         const overrides = this._loadJson(settings, 'color-overrides', {});
         const keys = Object.keys(overrides);
@@ -204,6 +208,7 @@ export default class GnomeColorerPrefs extends ExtensionPreferences {
                 subtitle: 'Right-click a window in the overview to assign a color',
             });
             group.add(emptyRow);
+            this._overrideRows.push(emptyRow);
             return;
         }
 
@@ -239,6 +244,7 @@ export default class GnomeColorerPrefs extends ExtensionPreferences {
             row.add_suffix(clearBtn);
 
             group.add(row);
+            this._overrideRows.push(row);
         }
     }
 

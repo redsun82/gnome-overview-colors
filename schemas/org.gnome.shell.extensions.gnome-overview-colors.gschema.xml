@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
-  <schema id="org.gnome.shell.extensions.gnome-colorer"
-          path="/org/gnome/shell/extensions/gnome-colorer/">
+  <schema id="org.gnome.shell.extensions.gnome-overview-colors"
+          path="/org/gnome/shell/extensions/gnome-overview-colors/">
 
     <!-- JSON array of rule objects: [{"wm_class": "...", "title_pattern": "..."}] -->
     <key name="rules" type="s">

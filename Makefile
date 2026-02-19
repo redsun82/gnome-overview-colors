@@ -1,7 +1,7 @@
-UUID = gnome-colorer@redsun82.github.io
+UUID = gnome-overview-colors@redsun82.github.io
 INSTALL_DIR = $(HOME)/.local/share/gnome-shell/extensions/$(UUID)
 SOURCES = metadata.json extension.js colorManager.js overlay.js contextMenu.js prefs.js \
-          schemas/org.gnome.shell.extensions.gnome-colorer.gschema.xml
+          schemas/org.gnome.shell.extensions.gnome-overview-colors.gschema.xml
 
 .PHONY: install uninstall schema pack dev-install clean
 

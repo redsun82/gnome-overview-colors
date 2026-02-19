@@ -1,4 +1,4 @@
-# GNOME Window Colorer
+# Overview colors
 
 A GNOME Shell extension that adds colored shades to window thumbnails in the
 overview, helping you quickly identify windows at a glance.
@@ -25,7 +25,7 @@ Then restart GNOME Shell (`Alt+F2` → `r` on X11, or log out/in on Wayland) and
 enable the extension:
 
 ```sh
-gnome-extensions enable gnome-colorer@redsun82.github.io
+gnome-extensions enable gnome-overview-colors@redsun82.github.io
 ```
 
 ## Configuration
@@ -33,7 +33,7 @@ gnome-extensions enable gnome-colorer@redsun82.github.io
 Open the extension preferences to add window-matching rules:
 
 ```sh
-gnome-extensions prefs gnome-colorer@redsun82.github.io
+gnome-extensions prefs gnome-overview-colors@redsun82.github.io
 ```
 
 Each rule has:
