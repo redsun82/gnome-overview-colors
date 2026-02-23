@@ -18,9 +18,9 @@ dev-install: schema
 uninstall:
 	gnome-extensions uninstall $(UUID)
 
-pack: schema
+pack:
 	rm -f $(UUID).zip
-	zip $(UUID).zip $(SOURCES) schemas/gschemas.compiled
+	zip $(UUID).zip $(SOURCES)
 
 schema:
 	glib-compile-schemas schemas/
