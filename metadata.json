@@ -3,7 +3,7 @@
   "name": "Overview colors",
   "description": "Add colored shades to windows in the overview for quick identification",
   "shell-version": ["45", "46", "47", "48"],
-  "version": 5,
+  "version": 4,
   "url": "https://github.com/redsun82/gnome-overview-colors",
   "donations": {
     "paypal": "ptranqui"
