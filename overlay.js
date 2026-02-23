@@ -141,11 +141,3 @@ export function removeOverlay(windowPreview) {
 export function getOverlay(windowPreview) {
   return _overlays.get(windowPreview) ?? null;
 }
-
-/**
- * Check whether a WindowPreview currently has an overlay.
- * @param {WindowPreview} windowPreview
- */
-export function hasOverlay(windowPreview) {
-  return _overlays.has(windowPreview);
-}
