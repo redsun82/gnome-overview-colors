@@ -9,11 +9,11 @@ import { debug } from "./log.js";
 
 const TAG = "[overview-colors/overlay]";
 
-/** @type {WeakMap<WindowPreview, StWidget>} */
-const _overlays = new WeakMap();
+/** @type {Map<WindowPreview, StWidget>} */
+const _overlays = new Map();
 
-/** @type {WeakMap<StWidget, {container: ClutterActor, signalIds: number[]}>} */
-const _scaleSync = new WeakMap();
+/** @type {Map<StWidget, {container: ClutterActor, signalIds: number[]}>} */
+const _scaleSync = new Map();
 
 /**
  * Build an inline CSS style string for the given RGB color.
@@ -140,4 +140,10 @@ export function removeOverlay(windowPreview) {
  */
 export function getOverlay(windowPreview) {
   return _overlays.get(windowPreview) ?? null;
+}
+
+/** Clear module-level state. Must be called in `disable()`. */
+export function clearState() {
+  _overlays.clear();
+  _scaleSync.clear();
 }

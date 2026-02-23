@@ -12,12 +12,12 @@ import { debug } from "./log.js";
 
 const TAG = "[overview-colors/context-menu]";
 
-/** @type {WeakMap<WindowPreview, PopupMenu>} */
-const _menus = new WeakMap();
-/** @type {WeakMap<WindowPreview, StWidget>} */
-const _anchors = new WeakMap();
-/** @type {WeakMap<WindowPreview, number>} */
-const _clickHandlers = new WeakMap();
+/** @type {Map<WindowPreview, PopupMenu>} */
+const _menus = new Map();
+/** @type {Map<WindowPreview, StWidget>} */
+const _anchors = new Map();
+/** @type {Map<WindowPreview, number>} */
+const _clickHandlers = new Map();
 
 const _openMenus = new Set();
 
@@ -326,4 +326,12 @@ function _loadJson(settings, key, fallback) {
   } catch {
     return fallback;
   }
+}
+
+/** Clear module-level state. Must be called in `disable()`. */
+export function clearState() {
+  _menus.clear();
+  _anchors.clear();
+  _clickHandlers.clear();
+  _openMenus.clear();
 }

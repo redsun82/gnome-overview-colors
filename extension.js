@@ -9,7 +9,12 @@ import * as Main from "resource:///org/gnome/shell/ui/main.js";
 
 import * as ColorManager from "./colorManager.js";
 import * as Overlay from "./overlay.js";
-import { attachMenu, attachCreateRuleMenu, removeMenu } from "./contextMenu.js";
+import {
+  attachMenu,
+  attachCreateRuleMenu,
+  removeMenu,
+  clearState as clearMenuState,
+} from "./contextMenu.js";
 import { debug, setEnabled as setDebugEnabled } from "./log.js";
 
 const TAG = "[overview-colors]";
@@ -145,6 +150,8 @@ export default class GnomeOverviewColorsExtension extends Extension {
       removeMenu(preview);
     }
     this._overlayPreviews?.clear();
+    Overlay.clearState();
+    clearMenuState();
 
     // Restore Alt+Tab monkey-patches
     if (this._origWindowSwitcherInit && this._windowSwitcherCtor?.prototype) {
