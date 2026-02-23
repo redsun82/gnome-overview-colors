@@ -1,14 +1,12 @@
 {
-    "uuid": "gnome-overview-colors@redsun82.github.io",
-    "name": "Overview colors",
-    "description": "Add colored shades to windows in the overview for quick identification",
-    "shell-version": [
-        "45",
-        "46",
-        "47",
-        "48"
-    ],
-    "version": 5,
-    "url": "https://github.com/redsun82/gnome-overview-colors",
-    "settings-schema": "org.gnome.shell.extensions.gnome-overview-colors"
+  "uuid": "gnome-overview-colors@redsun82.github.io",
+  "name": "Overview colors",
+  "description": "Add colored shades to windows in the overview for quick identification",
+  "shell-version": ["45", "46", "47", "48"],
+  "version": 5,
+  "url": "https://github.com/redsun82/gnome-overview-colors",
+  "donations": {
+    "paypal": "ptranqui"
+  },
+  "settings-schema": "org.gnome.shell.extensions.gnome-overview-colors"
 }
