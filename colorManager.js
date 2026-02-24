@@ -42,10 +42,6 @@ export function parseHex(hex) {
   };
 }
 
-/**
- * Pre-compiles rules for efficient window matching.
- * Create a new instance when rules or overrides change.
- */
 /** @param {string} pattern @param {string} [flags] @returns {RegExp | null} */
 function tryCompile(pattern, flags) {
   try {
@@ -55,6 +51,10 @@ function tryCompile(pattern, flags) {
   }
 }
 
+/**
+ * Pre-compiles rules for efficient window matching.
+ * Create a new instance when rules or overrides change.
+ */
 export class ColorMatcher {
   /**
    * @param {Rule[]} rules
