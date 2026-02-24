@@ -1,7 +1,3 @@
-/**
- * Overlay widget: creates and manages the colored tint + aura + border overlay
- * added to WindowPreview actors in the overview.
- */
 import Clutter from "gi://Clutter";
 import St from "gi://St";
 
@@ -11,14 +7,7 @@ const _overlays = new Map();
 /** @type {Map<StWidget, {container: ClutterActor, signalIds: number[]}>} */
 const _scaleSync = new Map();
 
-/**
- * Build an inline CSS style string for the given RGB color.
- * Produces a subtle tint, outward-bleeding aura (box-shadow), and solid border.
- * @param {number} r
- * @param {number} g
- * @param {number} b
- * @param {number} [emphasis]
- */
+/** @param {number} r @param {number} g @param {number} b @param {number} [emphasis] */
 function buildStyle(r, g, b, emphasis = 0) {
   const tintAlpha = 0.12 + 0.05 * emphasis;
   const auraBlur = 20 + 8 * emphasis;
@@ -69,8 +58,6 @@ function _syncOverlayScale(overlay, container, color) {
 }
 
 /**
- * Add a colored overlay to a WindowPreview, constrained to its window_container.
- *
  * @param {WindowPreview} windowPreview
  * @param {{r: number, g: number, b: number}} color
  */
@@ -85,11 +72,10 @@ export function createOverlay(windowPreview, color) {
     reactive: false,
   });
 
-  // Add overlay to the windowPreview itself, not window_container
-  // (window_container uses WindowPreviewLayout which ignores non-tracked children)
+  // Add to windowPreview itself, not window_container
+  // (WindowPreviewLayout ignores non-tracked children)
   windowPreview.add_child(overlay);
 
-  // Bind position and size to window_container
   overlay.add_constraint(
     new Clutter.BindConstraint({
       source: container,
@@ -108,11 +94,7 @@ export function createOverlay(windowPreview, color) {
   _overlays.set(windowPreview, overlay);
 }
 
-/**
- * Remove a previously added overlay from a WindowPreview.
- *
- * @param {WindowPreview} windowPreview
- */
+/** @param {WindowPreview} windowPreview */
 export function removeOverlay(windowPreview) {
   const existing = _overlays.get(windowPreview);
   if (existing) {
@@ -121,15 +103,11 @@ export function removeOverlay(windowPreview) {
   }
 }
 
-/**
- * Get the overlay widget from a WindowPreview, if any.
- * @param {WindowPreview} windowPreview
- */
+/** @param {WindowPreview} windowPreview */
 export function getOverlay(windowPreview) {
   return _overlays.get(windowPreview) ?? null;
 }
 
-/** Clear module-level state. Must be called in `disable()`. */
 export function clearState() {
   _overlays.clear();
   _scaleSync.clear();

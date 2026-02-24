@@ -1,7 +1,3 @@
-/**
- * Extension entry point: monkey-patches Workspace to add colored overlays
- * to window previews in the overview.
- */
 import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 import { Workspace } from "resource:///org/gnome/shell/ui/workspace.js";
 import * as AltTab from "resource:///org/gnome/shell/ui/altTab.js";
@@ -16,31 +12,33 @@ import {
   clearState as clearMenuState,
 } from "./contextMenu.js";
 
-/** Holds all mutable state while the extension is enabled. */
 class GnomeOverviewColorsImplementation {
-  /**
-   * @param {GioSettings} settings
-   */
+  /** @param {GioSettings} settings */
   constructor(settings) {
     this.settings = settings;
-    this.rules = this.#loadJson("rules", []);
-    this.overrides = this.#loadJson("color-overrides", {});
+    this.rules = this.#loadJson("rules", /** @type {Rule[]} */ ([]));
+    this.overrides = this.#loadJson(
+      "color-overrides",
+      /** @type {Record<string, string>} */ ({}),
+    );
     /** @type {Set<WindowPreview>} */
     this.overlayPreviews = new Set();
 
     this.rulesChangedId = settings.connect("changed::rules", () => {
-      this.rules = this.#loadJson("rules", []);
+      this.rules = this.#loadJson("rules", /** @type {Rule[]} */ ([]));
       this.#refreshAllOverlays();
     });
     this.overridesChangedId = settings.connect(
       "changed::color-overrides",
       () => {
-        this.overrides = this.#loadJson("color-overrides", {});
+        this.overrides = this.#loadJson(
+          "color-overrides",
+          /** @type {Record<string, string>} */ ({}),
+        );
         this.#refreshAllOverlays();
       },
     );
 
-    // Monkey-patch Workspace._addWindowClone
     const origAddWindowClone = Workspace.prototype._addWindowClone;
     this.origAddWindowClone = origAddWindowClone;
     const self = this;
@@ -53,7 +51,6 @@ class GnomeOverviewColorsImplementation {
       return ret;
     };
 
-    // Hide overlays immediately when the overview starts closing
     this.overviewHidingId = Main.overview.connect("hiding", () => {
       for (const preview of this.overlayPreviews) {
         const overlay = Overlay.getOverlay(preview);
@@ -61,7 +58,6 @@ class GnomeOverviewColorsImplementation {
       }
     });
 
-    // Monkey-patch Alt+Tab popup classes (stable exported API)
     this.switcherPatches = [
       this.#patchSwitcher(AltTab.WindowSwitcherPopup, "WindowSwitcherPopup"),
       this.#patchSwitcher(AltTab.AppSwitcherPopup, "AppSwitcherPopup"),
@@ -91,8 +87,10 @@ class GnomeOverviewColorsImplementation {
   }
 
   /**
+   * @template T
    * @param {string} key
-   * @param {any} fallback
+   * @param {T} fallback
+   * @returns {T}
    */
   #loadJson(key, fallback) {
     try {
@@ -105,11 +103,7 @@ class GnomeOverviewColorsImplementation {
     }
   }
 
-  /**
-   * @param {any} ctor
-   * @param {string} name
-   * @returns {{ctor: any, orig: any}}
-   */
+  /** @param {{ prototype?: { _init?: Function } }} ctor @param {string} name */
   #patchSwitcher(ctor, name) {
     if (!ctor?.prototype?._init) {
       console.warn(
@@ -120,16 +114,13 @@ class GnomeOverviewColorsImplementation {
     const orig = ctor.prototype._init;
     const self = this;
     ctor.prototype._init = function () {
-      /** @type {any} */ (orig).apply(this, arguments);
-      self.#applyAltTabStylesInPopup(this);
+      /** @type {Function} */ (orig).apply(this, arguments);
+      self.#applyAltTabStylesInPopup(/** @type {SwitcherPopup} */ (this));
     };
     return { ctor, orig };
   }
 
-  /**
-   * @param {WindowPreview} windowPreview
-   * @param {MetaWindow} metaWindow
-   */
+  /** @param {WindowPreview} windowPreview @param {MetaWindow} metaWindow */
   #applyOverlay(windowPreview, metaWindow) {
     const color = ColorManager.getColor(metaWindow, this.rules, this.overrides);
     this.overlayPreviews.add(windowPreview);
@@ -141,16 +132,15 @@ class GnomeOverviewColorsImplementation {
       Overlay.createOverlay(windowPreview, color);
       attachMenu(windowPreview, metaWindow, color, this.settings);
     } else {
-      // Unmatched window: offer to create a rule via right-click
       attachCreateRuleMenu(windowPreview, metaWindow, this.settings);
     }
   }
 
   /**
-   * Apply a colored tint + border to an Alt+Tab switcher item.
+   * Style an Alt+Tab switcher item with a colored tint + border.
    * The preview is a Clutter.Clone that cannot host overlay children,
    * so we style the item container directly.
-   * @param {any} widget
+   * @param {{ set_style: (style: string) => void }} widget
    * @param {{r: number, g: number, b: number}} color
    */
   #applyAltTabStyle(widget, color) {
@@ -163,10 +153,7 @@ class GnomeOverviewColorsImplementation {
     );
   }
 
-  /**
-   * Apply colors to items in an Alt+Tab popup instance.
-   * @param {any} popup
-   */
+  /** @param {SwitcherPopup} popup */
   #applyAltTabStylesInPopup(popup) {
     const seen = new Set();
     const buckets = [
@@ -205,20 +192,23 @@ class GnomeOverviewColorsImplementation {
               ? item.actor
               : null;
 
-        if (widget) this.#applyAltTabStyle(widget, color);
+        if (widget?.set_style) {
+          this.#applyAltTabStyle(
+            /** @type {{ set_style: (s: string) => void }} */ (widget),
+            color,
+          );
+        }
       }
     }
   }
 
   #refreshAllOverlays() {
-    // Remove all existing overlays and menus
     for (const preview of this.overlayPreviews) {
       Overlay.removeOverlay(preview);
       removeMenu(preview);
     }
     this.overlayPreviews.clear();
 
-    // Walk current workspace views and reapply
     const workspacesDisplay =
       Main.overview._overview?._controls?._workspacesDisplay;
     if (!workspacesDisplay) return;

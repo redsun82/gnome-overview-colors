@@ -1,12 +1,4 @@
 /**
- * Color manager: rule matching, identity extraction, and deterministic color
- * assignment via hashing.
- */
-
-/**
- * Match a Meta.Window against a list of rules.
- * Returns the extracted identity string, or null if no rule matches.
- *
  * @param {MetaWindow} metaWindow
  * @param {{wm_class: string, title_pattern: string}[]} rules
  * @returns {{identity: string, wmClass: string} | null}
@@ -44,10 +36,7 @@ export function matchWindow(metaWindow, rules) {
   return null;
 }
 
-/**
- * djb2 hash of a string → unsigned 32-bit integer.
- * @param {string} str
- */
+/** @param {string} str */
 function djb2(str) {
   let hash = 5381;
   for (let i = 0; i < str.length; i++)
@@ -55,12 +44,7 @@ function djb2(str) {
   return hash;
 }
 
-/**
- * Convert HSL (h in [0,360], s/l in [0,1]) to RGB {r, g, b} in [0,255].
- * @param {number} h
- * @param {number} s
- * @param {number} l
- */
+/** @param {number} h @param {number} s @param {number} l */
 function hslToRgb(h, s, l) {
   const c = (1 - Math.abs(2 * l - 1)) * s;
   const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
@@ -79,23 +63,14 @@ function hslToRgb(h, s, l) {
   };
 }
 
-/**
- * Hash an identity string to a deterministic color.
- * Uses djb2 → hue, with fixed saturation (65%) and lightness (55%).
- *
- * @param {string} identity
- * @returns {{r: number, g: number, b: number}}
- */
+/** @param {string} identity @returns {{r: number, g: number, b: number}} */
 export function hashToColor(identity) {
   const hue = djb2(identity) % 360;
   return hslToRgb(hue, 0.65, 0.55);
 }
 
-/**
- * Parse a hex color string "#rrggbb" to {r, g, b}.
- * @param {string} hex
- */
-function parseHex(hex) {
+/** @param {string} hex "#rrggbb" */
+export function parseHex(hex) {
   return {
     r: parseInt(hex.slice(1, 3), 16),
     g: parseInt(hex.slice(3, 5), 16),
@@ -104,11 +79,9 @@ function parseHex(hex) {
 }
 
 /**
- * Get the color for a window, considering overrides and hash-based assignment.
- *
  * @param {MetaWindow} metaWindow
  * @param {{wm_class: string, title_pattern: string}[]} rules
- * @param {Record<string, string>} overrides - map of "wmClass:identity" → "#rrggbb"
+ * @param {Record<string, string>} overrides  "wmClass:identity" → "#rrggbb"
  * @returns {?{r: number, g: number, b: number, identity: string, wmClass: string}}
  */
 export function getColor(metaWindow, rules, overrides) {
