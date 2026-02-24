@@ -8,9 +8,6 @@ import * as Main from "resource:///org/gnome/shell/ui/main.js";
 
 import * as ColorManager from "./colorManager.js";
 import * as Overlay from "./overlay.js";
-import { debug } from "./log.js";
-
-const TAG = "[overview-colors/context-menu]";
 
 /** @type {Map<WindowPreview, PopupMenu>} */
 const _menus = new Map();
@@ -64,7 +61,6 @@ function _openAtCursor(menu, anchor, event) {
 function _connectSecondaryClick(windowPreview, menu, anchor) {
   if (_clickHandlers.has(windowPreview)) return;
 
-  debug(`connect secondary-click handler on ${windowPreview}`);
   // Use captured-event (capture phase, top-down) so we intercept right-clicks
   // before child actors consume them, without adding reactive widgets that
   // interfere with hover.
@@ -77,7 +73,6 @@ function _connectSecondaryClick(windowPreview, menu, anchor) {
           return Clutter.EVENT_PROPAGATE;
         if (event.get_button() !== Clutter.BUTTON_SECONDARY)
           return Clutter.EVENT_PROPAGATE;
-        debug(`secondary click on WindowPreview -> open menu`);
         _openAtCursor(menu, anchor, event);
         return Clutter.EVENT_STOP;
       },
@@ -288,7 +283,6 @@ export function removeMenu(windowPreview) {
   }
   const clickHandlerId = _clickHandlers.get(windowPreview);
   if (clickHandlerId) {
-    debug(`disconnect secondary-click handler on ${windowPreview}`);
     windowPreview.disconnect(clickHandlerId);
     _clickHandlers.delete(windowPreview);
   }

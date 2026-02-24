@@ -17,7 +17,6 @@
     "overlay.js",
     "contextMenu.js",
     "prefs.js",
-    "log.js",
     "node_modules/@girs/gjs/dom.d.ts",
     "node_modules/@girs/gnome-shell/dist/index-ambient.d.ts",
     "node_modules/@girs/clutter-16/clutter-16-ambient.d.ts",

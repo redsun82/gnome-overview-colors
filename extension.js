@@ -15,38 +15,24 @@ import {
   removeMenu,
   clearState as clearMenuState,
 } from "./contextMenu.js";
-import { debug, setEnabled as setDebugEnabled } from "./log.js";
-
-const TAG = "[overview-colors]";
 
 export default class GnomeOverviewColorsExtension extends Extension {
   enable() {
     const settings = this.getSettings();
-    setDebugEnabled(settings.get_boolean("debug-logs"));
-    this._debugChangedId = settings.connect("changed::debug-logs", () => {
-      setDebugEnabled(settings.get_boolean("debug-logs"));
-    });
 
     this._rules = this._loadJson("rules", []);
     this._overrides = this._loadJson("color-overrides", {});
     this._overlayPreviews = new Set();
     this._settings = settings;
 
-    debug(
-      `${TAG} loaded ${this._rules.length} rules: ${JSON.stringify(this._rules)}`,
-    );
-    debug(`${TAG} loaded overrides: ${JSON.stringify(this._overrides)}`);
-
     this._rulesChangedId = this._settings.connect("changed::rules", () => {
       this._rules = this._loadJson("rules", []);
-      debug(`${TAG} rules changed, now ${this._rules.length} rules`);
       this._refreshAllOverlays();
     });
     this._overridesChangedId = this._settings.connect(
       "changed::color-overrides",
       () => {
         this._overrides = this._loadJson("color-overrides", {});
-        debug(`${TAG} overrides changed`);
         this._refreshAllOverlays();
       },
     );
@@ -56,31 +42,17 @@ export default class GnomeOverviewColorsExtension extends Extension {
     const ext = this;
     /** @type {(metaWindow: MetaWindow) => WindowPreview} */
     Workspace.prototype._addWindowClone = function (metaWindow) {
-      debug(
-        `${TAG} _addWindowClone called for: wm_class=${metaWindow.get_wm_class()}, title="${metaWindow.get_title()}"`,
-      );
-      const nBefore = this._windows?.length ?? 0;
       const ret = ext._origAddWindowClone?.call(this, metaWindow);
-      const nAfter = this._windows?.length ?? 0;
-      debug(
-        `${TAG} _addWindowClone returned: ${ret} (type=${typeof ret}), _windows: ${nBefore} -> ${nAfter}`,
-      );
 
       // The original may not return the clone; find it in this._windows
       const preview = ret ?? this._windows?.[this._windows.length - 1];
-      debug(
-        `${TAG} resolved preview: ${preview}, has window_container: ${!!preview?.window_container}`,
-      );
 
       if (preview) {
         ext._applyOverlay(preview, metaWindow);
-      } else {
-        debug(`${TAG} could not find preview for ${metaWindow.get_wm_class()}`);
       }
 
       return /** @type {WindowPreview} */ (ret);
     };
-    debug(`${TAG} monkey-patch installed`);
 
     // Hide overlays immediately when the overview starts closing
     this._overviewHidingId = Main.overview.connect("hiding", () => {
@@ -99,9 +71,6 @@ export default class GnomeOverviewColorsExtension extends Extension {
         ext._applyAltTabStylesInPopup(this);
       };
     } else {
-      debug(
-        `${TAG} AltTab.WindowSwitcherPopup not available; skipping Alt+Tab coloring`,
-      );
     }
 
     this._appSwitcherCtor = AltTab.AppSwitcherPopup;
@@ -112,14 +81,10 @@ export default class GnomeOverviewColorsExtension extends Extension {
         ext._applyAltTabStylesInPopup(this);
       };
     } else {
-      debug(
-        `${TAG} AltTab.AppSwitcherPopup not available; skipping Alt+Tab coloring`,
-      );
     }
   }
 
   disable() {
-    debug(`${TAG} disable() called`);
     // Restore original method
     if (this._origAddWindowClone) {
       Workspace.prototype._addWindowClone = this._origAddWindowClone;
@@ -148,10 +113,6 @@ export default class GnomeOverviewColorsExtension extends Extension {
     this._appSwitcherCtor = null;
 
     // Disconnect signals
-    if (this._debugChangedId) {
-      this._settings?.disconnect(this._debugChangedId);
-      this._debugChangedId = null;
-    }
     if (this._rulesChangedId) {
       this._settings?.disconnect(this._rulesChangedId);
       this._rulesChangedId = null;
@@ -182,7 +143,7 @@ export default class GnomeOverviewColorsExtension extends Extension {
       );
     } catch (e) {
       console.warn(
-        `${TAG} failed to parse setting '${key}': ${/** @type {Error} */ (e).message}`,
+        `[overview-colors] failed to parse setting '${key}': ${/** @type {Error} */ (e).message}`,
       );
       return fallback;
     }
@@ -193,16 +154,10 @@ export default class GnomeOverviewColorsExtension extends Extension {
    * @param {MetaWindow} metaWindow
    */
   _applyOverlay(windowPreview, metaWindow) {
-    debug(
-      `${TAG} _applyOverlay: wm_class=${metaWindow.get_wm_class()}, title="${metaWindow.get_title()}"`,
-    );
     const color = ColorManager.getColor(
       metaWindow,
       this._rules,
       this._overrides,
-    );
-    debug(
-      `${TAG} _applyOverlay: color=${color ? JSON.stringify({ r: color.r, g: color.g, b: color.b, identity: color.identity }) : "null"}`,
     );
     /** @type {Set<WindowPreview>} */ (this._overlayPreviews).add(
       windowPreview,
@@ -296,7 +251,6 @@ export default class GnomeOverviewColorsExtension extends Extension {
   }
 
   _refreshAllOverlays() {
-    debug(`${TAG} _refreshAllOverlays called`);
     // Remove all existing overlays and menus
     for (const preview of this._overlayPreviews ?? []) {
       Overlay.removeOverlay(preview);
@@ -307,10 +261,7 @@ export default class GnomeOverviewColorsExtension extends Extension {
     // Walk current workspace views and reapply
     const workspacesDisplay =
       Main.overview._overview?._controls?._workspacesDisplay;
-    if (!workspacesDisplay) {
-      debug(`${TAG} _refreshAllOverlays: workspacesDisplay not found`);
-      return;
-    }
+    if (!workspacesDisplay) return;
 
     const workspacesViews = workspacesDisplay._workspacesViews;
     if (!workspacesViews) return;

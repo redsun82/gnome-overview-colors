@@ -5,10 +5,6 @@
 import Clutter from "gi://Clutter";
 import St from "gi://St";
 
-import { debug } from "./log.js";
-
-const TAG = "[overview-colors/overlay]";
-
 /** @type {Map<WindowPreview, StWidget>} */
 const _overlays = new Map();
 
@@ -79,16 +75,10 @@ function _syncOverlayScale(overlay, container, color) {
  * @param {{r: number, g: number, b: number}} color
  */
 export function createOverlay(windowPreview, color) {
-  debug(
-    `${TAG} createOverlay: rgb(${color.r},${color.g},${color.b}) on ${windowPreview}`,
-  );
   removeOverlay(windowPreview);
 
   const container = windowPreview.window_container;
-  if (!container) {
-    debug(`createOverlay: windowPreview has no window_container!`);
-    return;
-  }
+  if (!container) return;
 
   const overlay = new St.Widget({
     style: buildStyle(color.r, color.g, color.b),
@@ -115,8 +105,6 @@ export function createOverlay(windowPreview, color) {
 
   _syncOverlayScale(overlay, container, color);
 
-  debug(`overlay added to windowPreview, bound to container`);
-
   _overlays.set(windowPreview, overlay);
 }
 
@@ -128,7 +116,6 @@ export function createOverlay(windowPreview, color) {
 export function removeOverlay(windowPreview) {
   const existing = _overlays.get(windowPreview);
   if (existing) {
-    debug(`removeOverlay: removing existing overlay`);
     existing.destroy();
     _overlays.delete(windowPreview);
   }

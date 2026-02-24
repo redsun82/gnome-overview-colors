@@ -3,10 +3,6 @@
  * assignment via hashing.
  */
 
-import { debug } from "./log.js";
-
-const TAG = "[overview-colors/color]";
-
 /**
  * Match a Meta.Window against a list of rules.
  * Returns the extracted identity string, or null if no rule matches.
@@ -18,56 +14,33 @@ const TAG = "[overview-colors/color]";
 export function matchWindow(metaWindow, rules) {
   const wmClass = metaWindow.get_wm_class();
   const title = metaWindow.get_title();
-  debug(
-    `${TAG} matchWindow: wmClass="${wmClass}", title="${title}", rules=${rules.length}`,
-  );
-  if (!wmClass || !title) {
-    debug(`matchWindow: no wmClass or title, returning null`);
-    return null;
-  }
+  if (!wmClass || !title) return null;
 
   for (const rule of rules) {
     let classRe;
     try {
       classRe = new RegExp(rule.wm_class, "i");
-    } catch (e) {
-      debug(
-        `${TAG} invalid wm_class regex "${rule.wm_class}": ${/** @type {Error} */ (e).message}`,
-      );
+    } catch {
       continue;
     }
-    if (!classRe.test(wmClass)) {
-      debug(`wmClass "${wmClass}" did not match /${rule.wm_class}/i`);
-      continue;
-    }
+    if (!classRe.test(wmClass)) continue;
 
     // Empty title_pattern: match all windows, use wmClass as identity
-    if (!rule.title_pattern) {
-      debug(`empty title_pattern, using wmClass as identity`);
-      return { identity: wmClass, wmClass };
-    }
+    if (!rule.title_pattern) return { identity: wmClass, wmClass };
 
     let titleRe;
     try {
       titleRe = new RegExp(rule.title_pattern);
-    } catch (e) {
-      debug(
-        `${TAG} invalid title_pattern regex "${rule.title_pattern}": ${/** @type {Error} */ (e).message}`,
-      );
+    } catch {
       continue;
     }
     const m = title.match(titleRe);
-    if (!m) {
-      debug(`title did not match /${rule.title_pattern}/`);
-      continue;
-    }
+    if (!m) continue;
 
     // Use first capture group as identity, fall back to full match
     const identity = m[1] ?? m[0];
-    debug(`matched! identity="${identity}", wmClass="${wmClass}"`);
     return { identity, wmClass };
   }
-  debug(`no rule matched`);
   return null;
 }
 
@@ -145,12 +118,8 @@ export function getColor(metaWindow, rules, overrides) {
   const { identity, wmClass } = match;
   const key = `${wmClass}:${identity}`;
 
-  if (overrides[key]) {
-    debug(`using override for "${key}": ${overrides[key]}`);
-    return { ...parseHex(overrides[key]), identity, wmClass };
-  }
+  if (overrides[key]) return { ...parseHex(overrides[key]), identity, wmClass };
 
   const color = hashToColor(identity);
-  debug(`hashed "${identity}" -> rgb(${color.r},${color.g},${color.b})`);
   return { ...color, identity, wmClass };
 }

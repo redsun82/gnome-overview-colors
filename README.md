@@ -87,10 +87,6 @@ Invalid regexes are highlighted in the UI.
 Lists all manual color overrides set via the overview context menu. Each entry
 can be cleared individually, or all overrides can be cleared at once.
 
-### General
-
-- **Debug Logs** — toggle detailed logging to the journal
-
 ## License
 
 MIT
