@@ -3,16 +3,15 @@ import St from "gi://St";
 import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 
-import * as ColorManager from "./colorManager.js";
+import { ColorMatcher, parseHex } from "./colorManager.js";
 import * as Overlay from "./overlay.js";
-import { loadJson, escapeRegex } from "./util.js";
 
-/** @type {Map<WindowPreview, PopupMenu>} */
-const _menus = new Map();
-/** @type {Map<WindowPreview, StWidget>} */
-const _anchors = new Map();
-/** @type {Map<WindowPreview, number>} */
-const _clickHandlers = new Map();
+/** @type {WeakMap<WindowPreview, PopupMenu>} */
+const _menus = new WeakMap();
+/** @type {WeakMap<WindowPreview, StWidget>} */
+const _anchors = new WeakMap();
+/** @type {WeakMap<WindowPreview, number>} */
+const _clickHandlers = new WeakMap();
 
 const _openMenus = new Set();
 
@@ -76,6 +75,11 @@ const PALETTE = [
   { label: "Pink", hex: "#e06088" },
 ];
 
+/** @param {string} str */
+function _escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /**
  * Create a PopupMenu anchored to `windowPreview`, register it in tracking maps,
  * and wire up secondary-click + destroy cleanup.
@@ -104,7 +108,7 @@ function _createMenu(windowPreview) {
  * @param {WindowPreview} windowPreview
  * @param {MetaWindow} metaWindow
  * @param {{identity: string, wmClass: string}} colorInfo
- * @param {GioSettings} settings
+ * @param {Settings} settings
  */
 export function attachMenu(windowPreview, metaWindow, colorInfo, settings) {
   const { identity, wmClass } = colorInfo;
@@ -129,23 +133,20 @@ export function attachMenu(windowPreview, metaWindow, colorInfo, settings) {
       }),
     );
     item.connect("activate", () => {
-      _setOverride(settings, overrideKey, hex);
-      const rgb = ColorManager.parseHex(hex);
-      Overlay.createOverlay(windowPreview, rgb);
+      settings.setOverride(overrideKey, hex);
+      Overlay.createOverlay(windowPreview, parseHex(hex));
     });
     menu.addMenuItem(item);
   }
 
   menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
   menu.addAction("Clear Override", () => {
-    _clearOverride(settings, overrideKey);
-    const rules = loadJson(settings, "rules", /** @type {Rule[]} */ ([]));
-    const overrides = loadJson(
-      settings,
-      "color-overrides",
-      /** @type {Record<string, string>} */ ({}),
+    settings.clearOverride(overrideKey);
+    const matcher = new ColorMatcher(
+      settings.getRules(),
+      settings.getOverrides(),
     );
-    const color = ColorManager.getColor(metaWindow, rules, overrides);
+    const color = matcher.getColor(metaWindow);
     if (color) Overlay.createOverlay(windowPreview, color);
     else Overlay.removeOverlay(windowPreview);
   });
@@ -154,7 +155,7 @@ export function attachMenu(windowPreview, metaWindow, colorInfo, settings) {
 /**
  * @param {WindowPreview} windowPreview
  * @param {MetaWindow} metaWindow
- * @param {GioSettings} settings
+ * @param {Settings} settings
  */
 export function attachCreateRuleMenu(windowPreview, metaWindow, settings) {
   const wmClass = metaWindow.get_wm_class() ?? "";
@@ -183,7 +184,7 @@ export function attachCreateRuleMenu(windowPreview, metaWindow, settings) {
     }),
   );
   const classEntry = new St.Entry({
-    text: escapeRegex(wmClass),
+    text: _escapeRegex(wmClass),
     hint_text: "WM_CLASS regex",
     can_focus: true,
     x_expand: true,
@@ -201,7 +202,7 @@ export function attachCreateRuleMenu(windowPreview, metaWindow, settings) {
     }),
   );
   const titleEntry = new St.Entry({
-    text: `(${escapeRegex(title)})`,
+    text: `(${_escapeRegex(title)})`,
     hint_text: "Capture group = color key; empty = same color for all",
     can_focus: true,
     x_expand: true,
@@ -220,12 +221,12 @@ export function attachCreateRuleMenu(windowPreview, metaWindow, settings) {
   menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
   menu.addAction("Save Rule", () => {
-    const rules = loadJson(settings, "rules", /** @type {Rule[]} */ ([]));
+    const rules = settings.getRules();
     rules.push({
       wm_class: classEntry.get_text(),
       title_pattern: titleEntry.get_text(),
     });
-    settings.set_string("rules", JSON.stringify(rules));
+    settings.setRules(rules);
   });
 }
 
@@ -246,33 +247,4 @@ export function removeMenu(windowPreview) {
     windowPreview.disconnect(clickHandlerId);
     _clickHandlers.delete(windowPreview);
   }
-}
-
-/** @param {GioSettings} settings @param {string} key @param {string} hex */
-function _setOverride(settings, key, hex) {
-  const overrides = loadJson(
-    settings,
-    "color-overrides",
-    /** @type {Record<string, string>} */ ({}),
-  );
-  overrides[key] = hex;
-  settings.set_string("color-overrides", JSON.stringify(overrides));
-}
-
-/** @param {GioSettings} settings @param {string} key */
-function _clearOverride(settings, key) {
-  const overrides = loadJson(
-    settings,
-    "color-overrides",
-    /** @type {Record<string, string>} */ ({}),
-  );
-  delete overrides[key];
-  settings.set_string("color-overrides", JSON.stringify(overrides));
-}
-
-export function clearState() {
-  _menus.clear();
-  _anchors.clear();
-  _clickHandlers.clear();
-  _openMenus.clear();
 }

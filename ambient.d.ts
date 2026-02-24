@@ -14,6 +14,8 @@ type GtkEntry = import("gi://Gtk").default.Entry;
 type GtkWidget = import("gi://Gtk").default.Widget;
 type AdwPreferencesRow = import("gi://Adw").default.PreferencesRow;
 
+type Settings = import("./settings.js").Settings;
+
 interface Rule {
   wm_class: string;
   title_pattern: string;

@@ -3,39 +3,27 @@ import { Workspace } from "resource:///org/gnome/shell/ui/workspace.js";
 import * as AltTab from "resource:///org/gnome/shell/ui/altTab.js";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 
-import * as ColorManager from "./colorManager.js";
+import { ColorMatcher } from "./colorManager.js";
 import * as Overlay from "./overlay.js";
-import { loadJson } from "./util.js";
-import {
-  attachMenu,
-  attachCreateRuleMenu,
-  removeMenu,
-  clearState as clearMenuState,
-} from "./contextMenu.js";
+import { Settings } from "./settings.js";
+import { attachMenu, attachCreateRuleMenu, removeMenu } from "./contextMenu.js";
 
 class GnomeOverviewColorsImplementation {
-  /** @param {GioSettings} settings */
-  constructor(settings) {
-    this.settings = settings;
-    this.rules = this.#loadJson("rules", /** @type {Rule[]} */ ([]));
-    this.overrides = this.#loadJson(
-      "color-overrides",
-      /** @type {Record<string, string>} */ ({}),
-    );
+  /** @param {GioSettings} gioSettings */
+  constructor(gioSettings) {
+    this.settings = new Settings(gioSettings);
+    this.colorMatcher = this.#buildMatcher();
     /** @type {Set<WindowPreview>} */
     this.overlayPreviews = new Set();
 
-    this.rulesChangedId = settings.connect("changed::rules", () => {
-      this.rules = this.#loadJson("rules", /** @type {Rule[]} */ ([]));
+    this.rulesChangedId = this.settings.connect("changed::rules", () => {
+      this.colorMatcher = this.#buildMatcher();
       this.#refreshAllOverlays();
     });
-    this.overridesChangedId = settings.connect(
+    this.overridesChangedId = this.settings.connect(
       "changed::color-overrides",
       () => {
-        this.overrides = this.#loadJson(
-          "color-overrides",
-          /** @type {Record<string, string>} */ ({}),
-        );
+        this.colorMatcher = this.#buildMatcher();
         this.#refreshAllOverlays();
       },
     );
@@ -73,8 +61,6 @@ class GnomeOverviewColorsImplementation {
       removeMenu(preview);
     }
     this.overlayPreviews.clear();
-    Overlay.clearState();
-    clearMenuState();
 
     for (const { ctor, orig } of this.switcherPatches) {
       if (orig && ctor?.prototype) {
@@ -87,14 +73,11 @@ class GnomeOverviewColorsImplementation {
     Main.overview.disconnect(this.overviewHidingId);
   }
 
-  /**
-   * @template T
-   * @param {string} key
-   * @param {T} fallback
-   * @returns {T}
-   */
-  #loadJson(key, fallback) {
-    return loadJson(this.settings, key, fallback);
+  #buildMatcher() {
+    return new ColorMatcher(
+      this.settings.getRules(),
+      this.settings.getOverrides(),
+    );
   }
 
   /** @param {{ prototype?: { _init?: Function } }} ctor @param {string} name */
@@ -116,7 +99,7 @@ class GnomeOverviewColorsImplementation {
 
   /** @param {WindowPreview} windowPreview @param {MetaWindow} metaWindow */
   #applyOverlay(windowPreview, metaWindow) {
-    const color = ColorManager.getColor(metaWindow, this.rules, this.overrides);
+    const color = this.colorMatcher.getColor(metaWindow);
     this.overlayPreviews.add(windowPreview);
     windowPreview.connect("destroy", () => {
       this.overlayPreviews.delete(windowPreview);
@@ -172,11 +155,7 @@ class GnomeOverviewColorsImplementation {
 
         if (!metaWindow) continue;
 
-        const color = ColorManager.getColor(
-          metaWindow,
-          this.rules,
-          this.overrides,
-        );
+        const color = this.colorMatcher.getColor(metaWindow);
         if (!color) continue;
 
         const widget =

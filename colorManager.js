@@ -1,41 +1,3 @@
-/**
- * @param {MetaWindow} metaWindow
- * @param {{wm_class: string, title_pattern: string}[]} rules
- * @returns {{identity: string, wmClass: string} | null}
- */
-export function matchWindow(metaWindow, rules) {
-  const wmClass = metaWindow.get_wm_class();
-  const title = metaWindow.get_title();
-  if (!wmClass || !title) return null;
-
-  for (const rule of rules) {
-    let classRe;
-    try {
-      classRe = new RegExp(rule.wm_class, "i");
-    } catch {
-      continue;
-    }
-    if (!classRe.test(wmClass)) continue;
-
-    // Empty title_pattern: match all windows, use wmClass as identity
-    if (!rule.title_pattern) return { identity: wmClass, wmClass };
-
-    let titleRe;
-    try {
-      titleRe = new RegExp(rule.title_pattern);
-    } catch {
-      continue;
-    }
-    const m = title.match(titleRe);
-    if (!m) continue;
-
-    // Use first capture group as identity, fall back to full match
-    const identity = m[1] ?? m[0];
-    return { identity, wmClass };
-  }
-  return null;
-}
-
 /** @param {string} str */
 function djb2(str) {
   let hash = 5381;
@@ -64,7 +26,7 @@ function hslToRgb(h, s, l) {
 }
 
 /** @param {string} identity @returns {{r: number, g: number, b: number}} */
-export function hashToColor(identity) {
+function hashToColor(identity) {
   const hue = djb2(identity) % 360;
   return hslToRgb(hue, 0.65, 0.55);
 }
@@ -79,20 +41,72 @@ export function parseHex(hex) {
 }
 
 /**
- * @param {MetaWindow} metaWindow
- * @param {{wm_class: string, title_pattern: string}[]} rules
- * @param {Record<string, string>} overrides  "wmClass:identity" → "#rrggbb"
- * @returns {?{r: number, g: number, b: number, identity: string, wmClass: string}}
+ * Pre-compiles rules for efficient window matching.
+ * Create a new instance when rules or overrides change.
  */
-export function getColor(metaWindow, rules, overrides) {
-  const match = matchWindow(metaWindow, rules);
-  if (!match) return null;
+/** @param {string} pattern @param {string} [flags] @returns {RegExp | null} */
+function tryCompile(pattern, flags) {
+  try {
+    return new RegExp(pattern, flags);
+  } catch {
+    return null;
+  }
+}
 
-  const { identity, wmClass } = match;
-  const key = `${wmClass}:${identity}`;
+export class ColorMatcher {
+  /**
+   * @param {Rule[]} rules
+   * @param {Record<string, string>} overrides  "wmClass:identity" → "#rrggbb"
+   */
+  constructor(rules, overrides) {
+    /** @type {{classRe: RegExp | null, titleRe: RegExp | null, hasTitlePattern: boolean}[]} */
+    this._compiled = rules.map((rule) => ({
+      classRe: tryCompile(rule.wm_class, "i"),
+      titleRe: rule.title_pattern ? tryCompile(rule.title_pattern) : null,
+      hasTitlePattern: !!rule.title_pattern,
+    }));
+    this._overrides = overrides;
+  }
 
-  if (overrides[key]) return { ...parseHex(overrides[key]), identity, wmClass };
+  /**
+   * @param {MetaWindow} metaWindow
+   * @returns {{identity: string, wmClass: string} | null}
+   */
+  matchWindow(metaWindow) {
+    const wmClass = metaWindow.get_wm_class();
+    const title = metaWindow.get_title();
+    if (!wmClass || !title) return null;
 
-  const color = hashToColor(identity);
-  return { ...color, identity, wmClass };
+    for (const { classRe, titleRe, hasTitlePattern } of this._compiled) {
+      if (!classRe || !classRe.test(wmClass)) continue;
+
+      if (!hasTitlePattern) return { identity: wmClass, wmClass };
+
+      if (!titleRe) continue;
+      const m = title.match(titleRe);
+      if (!m) continue;
+
+      const identity = m[1] ?? m[0];
+      return { identity, wmClass };
+    }
+    return null;
+  }
+
+  /**
+   * @param {MetaWindow} metaWindow
+   * @returns {?{r: number, g: number, b: number, identity: string, wmClass: string}}
+   */
+  getColor(metaWindow) {
+    const match = this.matchWindow(metaWindow);
+    if (!match) return null;
+
+    const { identity, wmClass } = match;
+    const key = `${wmClass}:${identity}`;
+
+    if (this._overrides[key])
+      return { ...parseHex(this._overrides[key]), identity, wmClass };
+
+    const color = hashToColor(identity);
+    return { ...color, identity, wmClass };
+  }
 }

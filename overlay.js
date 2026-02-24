@@ -1,11 +1,11 @@
 import Clutter from "gi://Clutter";
 import St from "gi://St";
 
-/** @type {Map<WindowPreview, StWidget>} */
-const _overlays = new Map();
+/** @type {WeakMap<WindowPreview, StWidget>} */
+const _overlays = new WeakMap();
 
-/** @type {Map<StWidget, {container: ClutterActor, signalIds: number[]}>} */
-const _scaleSync = new Map();
+/** @type {WeakMap<StWidget, {container: ClutterActor, signalIds: number[]}>} */
+const _scaleSync = new WeakMap();
 
 /** @param {number} r @param {number} g @param {number} b @param {number} [emphasis] */
 function buildStyle(r, g, b, emphasis = 0) {
@@ -106,9 +106,4 @@ export function removeOverlay(windowPreview) {
 /** @param {WindowPreview} windowPreview */
 export function getOverlay(windowPreview) {
   return _overlays.get(windowPreview) ?? null;
-}
-
-export function clearState() {
-  _overlays.clear();
-  _scaleSync.clear();
 }
