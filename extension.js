@@ -16,131 +16,87 @@ import {
   clearState as clearMenuState,
 } from "./contextMenu.js";
 
-export default class GnomeOverviewColorsExtension extends Extension {
-  enable() {
-    const settings = this.getSettings();
+/** Holds all mutable state while the extension is enabled. */
+class GnomeOverviewColorsImplementation {
+  /**
+   * @param {GioSettings} settings
+   */
+  constructor(settings) {
+    this.settings = settings;
+    this.rules = this.#loadJson("rules", []);
+    this.overrides = this.#loadJson("color-overrides", {});
+    /** @type {Set<WindowPreview>} */
+    this.overlayPreviews = new Set();
 
-    this._rules = this._loadJson("rules", []);
-    this._overrides = this._loadJson("color-overrides", {});
-    this._overlayPreviews = new Set();
-    this._settings = settings;
-
-    this._rulesChangedId = this._settings.connect("changed::rules", () => {
-      this._rules = this._loadJson("rules", []);
-      this._refreshAllOverlays();
+    this.rulesChangedId = settings.connect("changed::rules", () => {
+      this.rules = this.#loadJson("rules", []);
+      this.#refreshAllOverlays();
     });
-    this._overridesChangedId = this._settings.connect(
+    this.overridesChangedId = settings.connect(
       "changed::color-overrides",
       () => {
-        this._overrides = this._loadJson("color-overrides", {});
-        this._refreshAllOverlays();
+        this.overrides = this.#loadJson("color-overrides", {});
+        this.#refreshAllOverlays();
       },
     );
 
     // Monkey-patch Workspace._addWindowClone
-    this._origAddWindowClone = Workspace.prototype._addWindowClone;
-    const ext = this;
-    /** @type {(metaWindow: MetaWindow) => WindowPreview} */
-    Workspace.prototype._addWindowClone = function (metaWindow) {
-      const ret = ext._origAddWindowClone?.call(this, metaWindow);
-
-      // The original may not return the clone; find it in this._windows
-      const preview = ret ?? this._windows?.[this._windows.length - 1];
-
-      if (preview) {
-        ext._applyOverlay(preview, metaWindow);
-      }
-
-      return /** @type {WindowPreview} */ (ret);
+    const origAddWindowClone = Workspace.prototype._addWindowClone;
+    this.origAddWindowClone = origAddWindowClone;
+    const self = this;
+    Workspace.prototype._addWindowClone = function (
+      /** @type {MetaWindow} */ metaWindow,
+    ) {
+      const ret = origAddWindowClone?.call(this, metaWindow);
+      const preview = this._windows?.[this._windows.length - 1];
+      if (preview) self.#applyOverlay(preview, metaWindow);
+      return ret;
     };
 
     // Hide overlays immediately when the overview starts closing
-    this._overviewHidingId = Main.overview.connect("hiding", () => {
-      for (const preview of this._overlayPreviews ?? []) {
+    this.overviewHidingId = Main.overview.connect("hiding", () => {
+      for (const preview of this.overlayPreviews) {
         const overlay = Overlay.getOverlay(preview);
         if (overlay) overlay.hide();
       }
     });
 
     // Monkey-patch Alt+Tab popup classes (stable exported API)
-    this._windowSwitcherCtor = AltTab.WindowSwitcherPopup;
-    if (this._windowSwitcherCtor?.prototype?._init) {
-      this._origWindowSwitcherInit = this._windowSwitcherCtor.prototype._init;
-      this._windowSwitcherCtor.prototype._init = function () {
-        /** @type {any} */ (ext._origWindowSwitcherInit).apply(this, arguments);
-        ext._applyAltTabStylesInPopup(this);
-      };
-    } else {
-    }
-
-    this._appSwitcherCtor = AltTab.AppSwitcherPopup;
-    if (this._appSwitcherCtor?.prototype?._init) {
-      this._origAppSwitcherInit = this._appSwitcherCtor.prototype._init;
-      this._appSwitcherCtor.prototype._init = function () {
-        /** @type {any} */ (ext._origAppSwitcherInit).apply(this, arguments);
-        ext._applyAltTabStylesInPopup(this);
-      };
-    } else {
-    }
+    this.switcherPatches = [
+      this.#patchSwitcher(AltTab.WindowSwitcherPopup, "WindowSwitcherPopup"),
+      this.#patchSwitcher(AltTab.AppSwitcherPopup, "AppSwitcherPopup"),
+    ];
   }
 
-  disable() {
-    // Restore original method
-    if (this._origAddWindowClone) {
-      Workspace.prototype._addWindowClone = this._origAddWindowClone;
-      this._origAddWindowClone = null;
-    }
+  destroy() {
+    Workspace.prototype._addWindowClone = this.origAddWindowClone;
 
-    // Destroy all overlays and menus
-    for (const preview of this._overlayPreviews ?? []) {
+    for (const preview of this.overlayPreviews) {
       Overlay.removeOverlay(preview);
       removeMenu(preview);
     }
-    this._overlayPreviews?.clear();
+    this.overlayPreviews.clear();
     Overlay.clearState();
     clearMenuState();
 
-    // Restore Alt+Tab monkey-patches
-    if (this._origWindowSwitcherInit && this._windowSwitcherCtor?.prototype) {
-      this._windowSwitcherCtor.prototype._init = this._origWindowSwitcherInit;
-      this._origWindowSwitcherInit = null;
-    }
-    if (this._origAppSwitcherInit && this._appSwitcherCtor?.prototype) {
-      this._appSwitcherCtor.prototype._init = this._origAppSwitcherInit;
-      this._origAppSwitcherInit = null;
-    }
-    this._windowSwitcherCtor = null;
-    this._appSwitcherCtor = null;
-
-    // Disconnect signals
-    if (this._rulesChangedId) {
-      this._settings?.disconnect(this._rulesChangedId);
-      this._rulesChangedId = null;
-    }
-    if (this._overridesChangedId) {
-      this._settings?.disconnect(this._overridesChangedId);
-      this._overridesChangedId = null;
-    }
-    if (this._overviewHidingId) {
-      Main.overview.disconnect(this._overviewHidingId);
-      this._overviewHidingId = null;
+    for (const { ctor, orig } of this.switcherPatches) {
+      if (orig && ctor?.prototype) {
+        ctor.prototype._init = orig;
+      }
     }
 
-    this._settings = null;
-    this._rules = null;
-    this._overrides = null;
-    this._overlayPreviews = null;
+    this.settings.disconnect(this.rulesChangedId);
+    this.settings.disconnect(this.overridesChangedId);
+    Main.overview.disconnect(this.overviewHidingId);
   }
 
   /**
    * @param {string} key
    * @param {any} fallback
    */
-  _loadJson(key, fallback) {
+  #loadJson(key, fallback) {
     try {
-      return JSON.parse(
-        /** @type {GioSettings} */ (this._settings).get_string(key),
-      );
+      return JSON.parse(this.settings.get_string(key));
     } catch (e) {
       console.warn(
         `[overview-colors] failed to parse setting '${key}': ${/** @type {Error} */ (e).message}`,
@@ -150,39 +106,43 @@ export default class GnomeOverviewColorsExtension extends Extension {
   }
 
   /**
+   * @param {any} ctor
+   * @param {string} name
+   * @returns {{ctor: any, orig: any}}
+   */
+  #patchSwitcher(ctor, name) {
+    if (!ctor?.prototype?._init) {
+      console.warn(
+        `[overview-colors] ${name}._init not found; Alt+Tab coloring disabled`,
+      );
+      return { ctor: null, orig: null };
+    }
+    const orig = ctor.prototype._init;
+    const self = this;
+    ctor.prototype._init = function () {
+      /** @type {any} */ (orig).apply(this, arguments);
+      self.#applyAltTabStylesInPopup(this);
+    };
+    return { ctor, orig };
+  }
+
+  /**
    * @param {WindowPreview} windowPreview
    * @param {MetaWindow} metaWindow
    */
-  _applyOverlay(windowPreview, metaWindow) {
-    const color = ColorManager.getColor(
-      metaWindow,
-      this._rules,
-      this._overrides,
-    );
-    /** @type {Set<WindowPreview>} */ (this._overlayPreviews).add(
-      windowPreview,
-    );
+  #applyOverlay(windowPreview, metaWindow) {
+    const color = ColorManager.getColor(metaWindow, this.rules, this.overrides);
+    this.overlayPreviews.add(windowPreview);
     windowPreview.connect("destroy", () => {
-      /** @type {Set<WindowPreview>} */ (this._overlayPreviews).delete(
-        windowPreview,
-      );
+      this.overlayPreviews.delete(windowPreview);
     });
 
     if (color) {
       Overlay.createOverlay(windowPreview, color);
-      attachMenu(
-        windowPreview,
-        metaWindow,
-        color,
-        /** @type {GioSettings} */ (this._settings),
-      );
+      attachMenu(windowPreview, metaWindow, color, this.settings);
     } else {
       // Unmatched window: offer to create a rule via right-click
-      attachCreateRuleMenu(
-        windowPreview,
-        metaWindow,
-        /** @type {GioSettings} */ (this._settings),
-      );
+      attachCreateRuleMenu(windowPreview, metaWindow, this.settings);
     }
   }
 
@@ -193,7 +153,7 @@ export default class GnomeOverviewColorsExtension extends Extension {
    * @param {any} widget
    * @param {{r: number, g: number, b: number}} color
    */
-  _applyAltTabStyle(widget, color) {
+  #applyAltTabStyle(widget, color) {
     widget.set_style(
       [
         `background-color: rgba(${color.r}, ${color.g}, ${color.b}, 0.28)`,
@@ -207,7 +167,7 @@ export default class GnomeOverviewColorsExtension extends Extension {
    * Apply colors to items in an Alt+Tab popup instance.
    * @param {any} popup
    */
-  _applyAltTabStylesInPopup(popup) {
+  #applyAltTabStylesInPopup(popup) {
     const seen = new Set();
     const buckets = [
       popup?._items,
@@ -233,8 +193,8 @@ export default class GnomeOverviewColorsExtension extends Extension {
 
         const color = ColorManager.getColor(
           metaWindow,
-          this._rules,
-          this._overrides,
+          this.rules,
+          this.overrides,
         );
         if (!color) continue;
 
@@ -245,18 +205,18 @@ export default class GnomeOverviewColorsExtension extends Extension {
               ? item.actor
               : null;
 
-        if (widget) this._applyAltTabStyle(widget, color);
+        if (widget) this.#applyAltTabStyle(widget, color);
       }
     }
   }
 
-  _refreshAllOverlays() {
+  #refreshAllOverlays() {
     // Remove all existing overlays and menus
-    for (const preview of this._overlayPreviews ?? []) {
+    for (const preview of this.overlayPreviews) {
       Overlay.removeOverlay(preview);
       removeMenu(preview);
     }
-    this._overlayPreviews?.clear();
+    this.overlayPreviews.clear();
 
     // Walk current workspace views and reapply
     const workspacesDisplay =
@@ -272,8 +232,19 @@ export default class GnomeOverviewColorsExtension extends Extension {
       for (const ws of workspaces) {
         if (!ws?._windows) continue;
         for (const preview of ws._windows)
-          this._applyOverlay(preview, preview.metaWindow);
+          this.#applyOverlay(preview, preview.metaWindow);
       }
     }
+  }
+}
+
+export default class GnomeOverviewColorsExtension extends Extension {
+  enable() {
+    this._impl = new GnomeOverviewColorsImplementation(this.getSettings());
+  }
+
+  disable() {
+    this._impl?.destroy();
+    this._impl = null;
   }
 }
