@@ -16,6 +16,8 @@ class GnomeOverviewColorsImplementation {
     this.colorMatcher = this.#buildMatcher();
     /** @type {Set<WindowPreview>} */
     this.overlayPreviews = new Set();
+    /** @type {WeakMap<WindowPreview, number>} */
+    this.previewDestroySignalIds = new WeakMap();
 
     this.rulesChangedId = this.settings.connect("changed::rules", () => {
       this.colorMatcher = this.#buildMatcher();
@@ -58,6 +60,11 @@ class GnomeOverviewColorsImplementation {
     Workspace.prototype._addWindowClone = this.origAddWindowClone;
 
     for (const preview of this.overlayPreviews) {
+      const destroySignalId = this.previewDestroySignalIds.get(preview);
+      if (destroySignalId) {
+        preview.disconnect(destroySignalId);
+        this.previewDestroySignalIds.delete(preview);
+      }
       Overlay.removeOverlay(preview);
       removeMenu(preview);
     }
@@ -102,13 +109,17 @@ class GnomeOverviewColorsImplementation {
   #applyOverlay(windowPreview, metaWindow) {
     const color = this.colorMatcher.getColor(metaWindow);
     this.overlayPreviews.add(windowPreview);
-    windowPreview.connect("destroy", () => {
-      this.overlayPreviews.delete(windowPreview);
-    });
+    if (!this.previewDestroySignalIds.has(windowPreview)) {
+      const destroySignalId = windowPreview.connect("destroy", () => {
+        this.overlayPreviews.delete(windowPreview);
+        this.previewDestroySignalIds.delete(windowPreview);
+      });
+      this.previewDestroySignalIds.set(windowPreview, destroySignalId);
+    }
 
     if (color) {
       Overlay.createOverlay(windowPreview, color);
-      attachMenu(windowPreview, metaWindow, color, this.settings);
+      attachMenu(windowPreview, color, this.settings);
     } else {
       attachCreateRuleMenu(windowPreview, metaWindow, this.settings);
     }

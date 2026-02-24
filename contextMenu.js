@@ -3,7 +3,7 @@ import St from "gi://St";
 import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 
-import { ColorMatcher, parseHex } from "./colorManager.js";
+import { parseHex } from "./colorManager.js";
 import * as Overlay from "./overlay.js";
 import { escapeRegexLiteral, makeOverrideKey, PALETTE } from "./shared.js";
 
@@ -89,11 +89,10 @@ function _createMenu(windowPreview) {
 
 /**
  * @param {WindowPreview} windowPreview
- * @param {MetaWindow} metaWindow
  * @param {{identity: string, wmClass: string}} colorInfo
  * @param {Settings} settings
  */
-export function attachMenu(windowPreview, metaWindow, colorInfo, settings) {
+export function attachMenu(windowPreview, colorInfo, settings) {
   const { identity, wmClass } = colorInfo;
   const overrideKey = makeOverrideKey(wmClass, identity);
 
@@ -125,13 +124,6 @@ export function attachMenu(windowPreview, metaWindow, colorInfo, settings) {
   menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
   menu.addAction("Clear Override", () => {
     settings.clearOverride(overrideKey);
-    const matcher = new ColorMatcher(
-      settings.getRules(),
-      settings.getOverrides(),
-    );
-    const color = matcher.getColor(metaWindow);
-    if (color) Overlay.createOverlay(windowPreview, color);
-    else Overlay.removeOverlay(windowPreview);
   });
 }
 
