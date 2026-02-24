@@ -6,10 +6,16 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "prepare": "husky",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint-files": "eslint"
   },
   "lint-staged": {
-    "*.{js,json,md,yml,yaml}": "prettier --write"
+    "*.js": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": "prettier --write"
   },
   "repository": {
     "type": "git",
@@ -24,7 +30,10 @@
   },
   "homepage": "https://github.com/redsun82/gnome-overview-colors#readme",
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@girs/gnome-shell": "^48.0.4",
+    "eslint": "^10.0.2",
+    "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "prettier": "^3.8.1",
