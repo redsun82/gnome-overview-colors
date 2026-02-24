@@ -5,6 +5,7 @@ import * as Main from "resource:///org/gnome/shell/ui/main.js";
 
 import * as ColorManager from "./colorManager.js";
 import * as Overlay from "./overlay.js";
+import { loadJson } from "./util.js";
 import {
   attachMenu,
   attachCreateRuleMenu,
@@ -93,14 +94,7 @@ class GnomeOverviewColorsImplementation {
    * @returns {T}
    */
   #loadJson(key, fallback) {
-    try {
-      return JSON.parse(this.settings.get_string(key));
-    } catch (e) {
-      console.warn(
-        `[overview-colors] failed to parse setting '${key}': ${/** @type {Error} */ (e).message}`,
-      );
-      return fallback;
-    }
+    return loadJson(this.settings, key, fallback);
   }
 
   /** @param {{ prototype?: { _init?: Function } }} ctor @param {string} name */

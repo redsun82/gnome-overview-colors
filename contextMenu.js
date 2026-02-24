@@ -5,6 +5,7 @@ import * as Main from "resource:///org/gnome/shell/ui/main.js";
 
 import * as ColorManager from "./colorManager.js";
 import * as Overlay from "./overlay.js";
+import { loadJson, escapeRegex } from "./util.js";
 
 /** @type {Map<WindowPreview, PopupMenu>} */
 const _menus = new Map();
@@ -14,11 +15,6 @@ const _anchors = new Map();
 const _clickHandlers = new Map();
 
 const _openMenus = new Set();
-
-/** @param {string} str */
-function escapeRegex(str) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
 /** @param {WindowPreview} windowPreview */
 function _ensureAnchor(windowPreview) {
@@ -81,16 +77,13 @@ const PALETTE = [
 ];
 
 /**
+ * Create a PopupMenu anchored to `windowPreview`, register it in tracking maps,
+ * and wire up secondary-click + destroy cleanup.
  * @param {WindowPreview} windowPreview
- * @param {MetaWindow} metaWindow
- * @param {{identity: string, wmClass: string}} colorInfo
- * @param {GioSettings} settings
+ * @returns {PopupMenu}
  */
-export function attachMenu(windowPreview, metaWindow, colorInfo, settings) {
+function _createMenu(windowPreview) {
   removeMenu(windowPreview);
-
-  const { identity, wmClass } = colorInfo;
-  const overrideKey = `${wmClass}:${identity}`;
 
   const anchor = _ensureAnchor(windowPreview);
   const menu = new PopupMenu.PopupMenu(anchor, 0.0, St.Side.TOP);
@@ -100,6 +93,24 @@ export function attachMenu(windowPreview, metaWindow, colorInfo, settings) {
   _openMenus.add(menu);
   // @ts-ignore: 'destroy' signal exists at runtime but not in type defs
   menu.connect("destroy", () => _openMenus.delete(menu));
+
+  _connectSecondaryClick(windowPreview, menu, anchor);
+  windowPreview.connect("destroy", () => removeMenu(windowPreview));
+
+  return menu;
+}
+
+/**
+ * @param {WindowPreview} windowPreview
+ * @param {MetaWindow} metaWindow
+ * @param {{identity: string, wmClass: string}} colorInfo
+ * @param {GioSettings} settings
+ */
+export function attachMenu(windowPreview, metaWindow, colorInfo, settings) {
+  const { identity, wmClass } = colorInfo;
+  const overrideKey = `${wmClass}:${identity}`;
+
+  const menu = _createMenu(windowPreview);
 
   for (const { label, hex } of PALETTE) {
     const item = new PopupMenu.PopupBaseMenuItem();
@@ -128,8 +139,8 @@ export function attachMenu(windowPreview, metaWindow, colorInfo, settings) {
   menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
   menu.addAction("Clear Override", () => {
     _clearOverride(settings, overrideKey);
-    const rules = _loadJson(settings, "rules", /** @type {Rule[]} */ ([]));
-    const overrides = _loadJson(
+    const rules = loadJson(settings, "rules", /** @type {Rule[]} */ ([]));
+    const overrides = loadJson(
       settings,
       "color-overrides",
       /** @type {Record<string, string>} */ ({}),
@@ -138,10 +149,6 @@ export function attachMenu(windowPreview, metaWindow, colorInfo, settings) {
     if (color) Overlay.createOverlay(windowPreview, color);
     else Overlay.removeOverlay(windowPreview);
   });
-
-  _connectSecondaryClick(windowPreview, menu, anchor);
-
-  windowPreview.connect("destroy", () => removeMenu(windowPreview));
 }
 
 /**
@@ -150,19 +157,10 @@ export function attachMenu(windowPreview, metaWindow, colorInfo, settings) {
  * @param {GioSettings} settings
  */
 export function attachCreateRuleMenu(windowPreview, metaWindow, settings) {
-  removeMenu(windowPreview);
-
   const wmClass = metaWindow.get_wm_class() ?? "";
   const title = metaWindow.get_title() ?? "";
 
-  const anchor = _ensureAnchor(windowPreview);
-  const menu = new PopupMenu.PopupMenu(anchor, 0.0, St.Side.TOP);
-  Main.uiGroup.add_child(menu.actor);
-  menu.actor.hide();
-  _menus.set(windowPreview, menu);
-  _openMenus.add(menu);
-  // @ts-ignore: 'destroy' signal exists at runtime but not in type defs
-  menu.connect("destroy", () => _openMenus.delete(menu));
+  const menu = _createMenu(windowPreview);
 
   const headerItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
   headerItem.add_child(
@@ -222,17 +220,13 @@ export function attachCreateRuleMenu(windowPreview, metaWindow, settings) {
   menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
   menu.addAction("Save Rule", () => {
-    const rules = _loadJson(settings, "rules", /** @type {Rule[]} */ ([]));
+    const rules = loadJson(settings, "rules", /** @type {Rule[]} */ ([]));
     rules.push({
       wm_class: classEntry.get_text(),
       title_pattern: titleEntry.get_text(),
     });
     settings.set_string("rules", JSON.stringify(rules));
   });
-
-  _connectSecondaryClick(windowPreview, menu, anchor);
-
-  windowPreview.connect("destroy", () => removeMenu(windowPreview));
 }
 
 /** @param {WindowPreview} windowPreview */
@@ -256,7 +250,7 @@ export function removeMenu(windowPreview) {
 
 /** @param {GioSettings} settings @param {string} key @param {string} hex */
 function _setOverride(settings, key, hex) {
-  const overrides = _loadJson(
+  const overrides = loadJson(
     settings,
     "color-overrides",
     /** @type {Record<string, string>} */ ({}),
@@ -267,22 +261,13 @@ function _setOverride(settings, key, hex) {
 
 /** @param {GioSettings} settings @param {string} key */
 function _clearOverride(settings, key) {
-  const overrides = _loadJson(
+  const overrides = loadJson(
     settings,
     "color-overrides",
     /** @type {Record<string, string>} */ ({}),
   );
   delete overrides[key];
   settings.set_string("color-overrides", JSON.stringify(overrides));
-}
-
-/** @template T @param {GioSettings} settings @param {string} key @param {T} fallback @returns {T} */
-function _loadJson(settings, key, fallback) {
-  try {
-    return JSON.parse(settings.get_string(key));
-  } catch {
-    return fallback;
-  }
 }
 
 export function clearState() {

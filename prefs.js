@@ -4,8 +4,14 @@ import Gtk from "gi://Gtk";
 import { ExtensionPreferences } from "resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js";
 
 import { parseHex } from "./colorManager.js";
+import { loadJson } from "./util.js";
 
 export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
+  /** @type {AdwPreferencesRow[]} */
+  #ruleRows = [];
+  /** @type {AdwPreferencesRow[]} */
+  #overrideRows = [];
+
   /** @param {AdwPreferencesWindow} window */
   async fillPreferencesWindow(window) {
     const settings = this.getSettings();
@@ -23,7 +29,7 @@ export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
     });
     rulesPage.add(rulesGroup);
 
-    this._rebuildRulesList(settings, rulesGroup);
+    this.#rebuildRulesList(settings, rulesGroup);
 
     const addGroup = new Adw.PreferencesGroup();
     rulesPage.add(addGroup);
@@ -33,14 +39,10 @@ export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
       valign: Gtk.Align.CENTER,
     });
     addBtn.connect("clicked", () => {
-      const rules = this._loadJson(
-        settings,
-        "rules",
-        /** @type {Rule[]} */ ([]),
-      );
+      const rules = loadJson(settings, "rules", /** @type {Rule[]} */ ([]));
       rules.push({ wm_class: "", title_pattern: "" });
       settings.set_string("rules", JSON.stringify(rules));
-      this._rebuildRulesList(settings, rulesGroup);
+      this.#rebuildRulesList(settings, rulesGroup);
     });
     addRow.add_suffix(addBtn);
     addGroup.add(addRow);
@@ -58,7 +60,7 @@ export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
     });
     overridesPage.add(overridesGroup);
 
-    this._rebuildOverridesList(settings, overridesGroup);
+    this.#rebuildOverridesList(settings, overridesGroup);
 
     const clearAllGroup = new Adw.PreferencesGroup();
     overridesPage.add(clearAllGroup);
@@ -70,41 +72,25 @@ export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
     });
     clearAllBtn.connect("clicked", () => {
       settings.set_string("color-overrides", "{}");
-      this._rebuildOverridesList(settings, overridesGroup);
+      this.#rebuildOverridesList(settings, overridesGroup);
     });
     clearAllRow.add_suffix(clearAllBtn);
     clearAllGroup.add(clearAllRow);
 
     settings.connect("changed::color-overrides", () => {
-      this._rebuildOverridesList(settings, overridesGroup);
+      this.#rebuildOverridesList(settings, overridesGroup);
     });
-  }
-
-  /**
-   * @template T
-   * @param {GioSettings} settings
-   * @param {string} key
-   * @param {T} fallback
-   * @returns {T}
-   */
-  _loadJson(settings, key, fallback) {
-    try {
-      return JSON.parse(settings.get_string(key));
-    } catch {
-      return fallback;
-    }
   }
 
   /**
    * @param {GioSettings} settings
    * @param {AdwPreferencesGroup} group
    */
-  _rebuildRulesList(settings, group) {
-    for (const row of this._ruleRows ?? []) group.remove(row);
-    /** @type {AdwPreferencesRow[]} */
-    this._ruleRows = [];
+  #rebuildRulesList(settings, group) {
+    for (const row of this.#ruleRows) group.remove(row);
+    this.#ruleRows = [];
 
-    const rules = this._loadJson(settings, "rules", /** @type {Rule[]} */ ([]));
+    const rules = loadJson(settings, "rules", /** @type {Rule[]} */ ([]));
 
     rules.forEach((/** @type {Rule} */ rule, /** @type {number} */ index) => {
       const row = new Adw.ExpanderRow({
@@ -120,18 +106,14 @@ export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
         hexpand: true,
       });
       classEntry.connect("changed", () => {
-        const current = this._loadJson(
-          settings,
-          "rules",
-          /** @type {Rule[]} */ ([]),
-        );
+        const current = loadJson(settings, "rules", /** @type {Rule[]} */ ([]));
         if (current[index]) {
           current[index].wm_class = classEntry.get_text();
           settings.set_string("rules", JSON.stringify(current));
           row.title = classEntry.get_text() || "(empty WM_CLASS)";
         }
       });
-      this._addRegexValidation(classEntry);
+      this.#addRegexValidation(classEntry);
       classRow.add_suffix(classEntry);
       row.add_row(classRow);
 
@@ -143,18 +125,14 @@ export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
         hexpand: true,
       });
       titleEntry.connect("changed", () => {
-        const current = this._loadJson(
-          settings,
-          "rules",
-          /** @type {Rule[]} */ ([]),
-        );
+        const current = loadJson(settings, "rules", /** @type {Rule[]} */ ([]));
         if (current[index]) {
           current[index].title_pattern = titleEntry.get_text();
           settings.set_string("rules", JSON.stringify(current));
           row.subtitle = titleEntry.get_text() || "(empty title pattern)";
         }
       });
-      this._addRegexValidation(titleEntry);
+      this.#addRegexValidation(titleEntry);
       titleRow.add_suffix(titleEntry);
       row.add_row(titleRow);
 
@@ -165,20 +143,16 @@ export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
         css_classes: ["destructive-action"],
       });
       deleteBtn.connect("clicked", () => {
-        const current = this._loadJson(
-          settings,
-          "rules",
-          /** @type {Rule[]} */ ([]),
-        );
+        const current = loadJson(settings, "rules", /** @type {Rule[]} */ ([]));
         current.splice(index, 1);
         settings.set_string("rules", JSON.stringify(current));
-        this._rebuildRulesList(settings, group);
+        this.#rebuildRulesList(settings, group);
       });
       deleteRow.add_suffix(deleteBtn);
       row.add_row(deleteRow);
 
       group.add(row);
-      this._ruleRows?.push(row);
+      this.#ruleRows.push(row);
     });
   }
 
@@ -186,12 +160,11 @@ export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
    * @param {GioSettings} settings
    * @param {AdwPreferencesGroup} group
    */
-  _rebuildOverridesList(settings, group) {
-    for (const row of this._overrideRows ?? []) group.remove(row);
-    /** @type {AdwPreferencesRow[]} */
-    this._overrideRows = [];
+  #rebuildOverridesList(settings, group) {
+    for (const row of this.#overrideRows) group.remove(row);
+    this.#overrideRows = [];
 
-    const overrides = this._loadJson(
+    const overrides = loadJson(
       settings,
       "color-overrides",
       /** @type {Record<string, string>} */ ({}),
@@ -204,7 +177,7 @@ export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
         subtitle: "Right-click a window in the overview to assign a color",
       });
       group.add(emptyRow);
-      this._overrideRows.push(emptyRow);
+      this.#overrideRows.push(emptyRow);
       return;
     }
 
@@ -233,7 +206,7 @@ export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
         valign: Gtk.Align.CENTER,
       });
       clearBtn.connect("clicked", () => {
-        const current = this._loadJson(
+        const current = loadJson(
           settings,
           "color-overrides",
           /** @type {Record<string, string>} */ ({}),
@@ -244,12 +217,12 @@ export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
       row.add_suffix(clearBtn);
 
       group.add(row);
-      this._overrideRows.push(row);
+      this.#overrideRows.push(row);
     }
   }
 
   /** @param {GtkEntry} entry */
-  _addRegexValidation(entry) {
+  #addRegexValidation(entry) {
     entry.connect("changed", () => {
       const text = entry.get_text();
       if (text === "") {
