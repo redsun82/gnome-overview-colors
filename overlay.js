@@ -86,7 +86,7 @@ export function createOverlay(windowPreview, color) {
 
   const container = windowPreview.window_container;
   if (!container) {
-    debug(`${TAG} createOverlay: windowPreview has no window_container!`);
+    debug(`createOverlay: windowPreview has no window_container!`);
     return;
   }
 
@@ -115,7 +115,7 @@ export function createOverlay(windowPreview, color) {
 
   _syncOverlayScale(overlay, container, color);
 
-  debug(`${TAG} overlay added to windowPreview, bound to container`);
+  debug(`overlay added to windowPreview, bound to container`);
 
   _overlays.set(windowPreview, overlay);
 }
@@ -128,7 +128,7 @@ export function createOverlay(windowPreview, color) {
 export function removeOverlay(windowPreview) {
   const existing = _overlays.get(windowPreview);
   if (existing) {
-    debug(`${TAG} removeOverlay: removing existing overlay`);
+    debug(`removeOverlay: removing existing overlay`);
     existing.destroy();
     _overlays.delete(windowPreview);
   }

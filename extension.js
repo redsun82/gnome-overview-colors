@@ -21,16 +21,16 @@ const TAG = "[overview-colors]";
 
 export default class GnomeOverviewColorsExtension extends Extension {
   enable() {
-    this._settings = this.getSettings();
-    setDebugEnabled(this._settings.get_boolean("debug-logs"));
-    this._debugChangedId = this._settings.connect("changed::debug-logs", () => {
-      setDebugEnabled(this._settings?.get_boolean("debug-logs") ?? false);
+    const settings = this.getSettings();
+    setDebugEnabled(settings.get_boolean("debug-logs"));
+    this._debugChangedId = settings.connect("changed::debug-logs", () => {
+      setDebugEnabled(settings.get_boolean("debug-logs"));
     });
 
-    debug(`${TAG} enable() called`);
     this._rules = this._loadJson("rules", []);
     this._overrides = this._loadJson("color-overrides", {});
     this._overlayPreviews = new Set();
+    this._settings = settings;
 
     debug(
       `${TAG} loaded ${this._rules.length} rules: ${JSON.stringify(this._rules)}`,
@@ -73,13 +73,7 @@ export default class GnomeOverviewColorsExtension extends Extension {
       );
 
       if (preview) {
-        try {
-          ext._applyOverlay(preview, metaWindow);
-        } catch (e) {
-          console.error(
-            `${TAG} _applyOverlay error: ${/** @type {Error} */ (e).message}\n${/** @type {Error} */ (e).stack}`,
-          );
-        }
+        ext._applyOverlay(preview, metaWindow);
       } else {
         debug(`${TAG} could not find preview for ${metaWindow.get_wm_class()}`);
       }
@@ -102,13 +96,7 @@ export default class GnomeOverviewColorsExtension extends Extension {
       this._origWindowSwitcherInit = this._windowSwitcherCtor.prototype._init;
       this._windowSwitcherCtor.prototype._init = function () {
         /** @type {any} */ (ext._origWindowSwitcherInit).apply(this, arguments);
-        try {
-          ext._applyAltTabStylesInPopup(this);
-        } catch (e) {
-          debug(
-            `${TAG} WindowSwitcherPopup color error: ${/** @type {Error} */ (e).message}`,
-          );
-        }
+        ext._applyAltTabStylesInPopup(this);
       };
     } else {
       debug(
@@ -121,13 +109,7 @@ export default class GnomeOverviewColorsExtension extends Extension {
       this._origAppSwitcherInit = this._appSwitcherCtor.prototype._init;
       this._appSwitcherCtor.prototype._init = function () {
         /** @type {any} */ (ext._origAppSwitcherInit).apply(this, arguments);
-        try {
-          ext._applyAltTabStylesInPopup(this);
-        } catch (e) {
-          debug(
-            `${TAG} AppSwitcherPopup color error: ${/** @type {Error} */ (e).message}`,
-          );
-        }
+        ext._applyAltTabStylesInPopup(this);
       };
     } else {
       debug(
@@ -195,7 +177,9 @@ export default class GnomeOverviewColorsExtension extends Extension {
    */
   _loadJson(key, fallback) {
     try {
-      return JSON.parse(this._settings?.get_string(key) ?? "");
+      return JSON.parse(
+        /** @type {GioSettings} */ (this._settings).get_string(key),
+      );
     } catch (e) {
       console.warn(
         `${TAG} failed to parse setting '${key}': ${/** @type {Error} */ (e).message}`,
@@ -220,9 +204,13 @@ export default class GnomeOverviewColorsExtension extends Extension {
     debug(
       `${TAG} _applyOverlay: color=${color ? JSON.stringify({ r: color.r, g: color.g, b: color.b, identity: color.identity }) : "null"}`,
     );
-    this._overlayPreviews?.add(windowPreview);
+    /** @type {Set<WindowPreview>} */ (this._overlayPreviews).add(
+      windowPreview,
+    );
     windowPreview.connect("destroy", () => {
-      this._overlayPreviews?.delete(windowPreview);
+      /** @type {Set<WindowPreview>} */ (this._overlayPreviews).delete(
+        windowPreview,
+      );
     });
 
     if (color) {
@@ -290,8 +278,8 @@ export default class GnomeOverviewColorsExtension extends Extension {
 
         const color = ColorManager.getColor(
           metaWindow,
-          this._rules ?? [],
-          this._overrides ?? {},
+          this._rules,
+          this._overrides,
         );
         if (!color) continue;
 

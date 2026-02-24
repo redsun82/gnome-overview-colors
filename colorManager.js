@@ -22,7 +22,7 @@ export function matchWindow(metaWindow, rules) {
     `${TAG} matchWindow: wmClass="${wmClass}", title="${title}", rules=${rules.length}`,
   );
   if (!wmClass || !title) {
-    debug(`${TAG} matchWindow: no wmClass or title, returning null`);
+    debug(`matchWindow: no wmClass or title, returning null`);
     return null;
   }
 
@@ -37,13 +37,13 @@ export function matchWindow(metaWindow, rules) {
       continue;
     }
     if (!classRe.test(wmClass)) {
-      debug(`${TAG} wmClass "${wmClass}" did not match /${rule.wm_class}/i`);
+      debug(`wmClass "${wmClass}" did not match /${rule.wm_class}/i`);
       continue;
     }
 
     // Empty title_pattern: match all windows, use wmClass as identity
     if (!rule.title_pattern) {
-      debug(`${TAG} empty title_pattern, using wmClass as identity`);
+      debug(`empty title_pattern, using wmClass as identity`);
       return { identity: wmClass, wmClass };
     }
 
@@ -58,16 +58,16 @@ export function matchWindow(metaWindow, rules) {
     }
     const m = title.match(titleRe);
     if (!m) {
-      debug(`${TAG} title did not match /${rule.title_pattern}/`);
+      debug(`title did not match /${rule.title_pattern}/`);
       continue;
     }
 
     // Use first capture group as identity, fall back to full match
     const identity = m[1] ?? m[0];
-    debug(`${TAG} matched! identity="${identity}", wmClass="${wmClass}"`);
+    debug(`matched! identity="${identity}", wmClass="${wmClass}"`);
     return { identity, wmClass };
   }
-  debug(`${TAG} no rule matched`);
+  debug(`no rule matched`);
   return null;
 }
 
@@ -146,11 +146,11 @@ export function getColor(metaWindow, rules, overrides) {
   const key = `${wmClass}:${identity}`;
 
   if (overrides[key]) {
-    debug(`${TAG} using override for "${key}": ${overrides[key]}`);
+    debug(`using override for "${key}": ${overrides[key]}`);
     return { ...parseHex(overrides[key]), identity, wmClass };
   }
 
   const color = hashToColor(identity);
-  debug(`${TAG} hashed "${identity}" -> rgb(${color.r},${color.g},${color.b})`);
+  debug(`hashed "${identity}" -> rgb(${color.r},${color.g},${color.b})`);
   return { ...color, identity, wmClass };
 }
