@@ -7,6 +7,14 @@ import { ColorMatcher } from "./colorManager.js";
 import * as Overlay from "./overlay.js";
 import { Settings } from "./settings.js";
 import { attachMenu, attachCreateRuleMenu, removeMenu } from "./contextMenu.js";
+import {
+  getLatestWorkspacePreview,
+  getMetaWindowFromSwitcherItem,
+  getOverviewWindowPreviews,
+  getPreviewMetaWindow,
+  getStyledSwitcherWidget,
+  getSwitcherItems,
+} from "./gnomeShellInternals.js";
 import { PatchManager } from "./patchManager.js";
 import { buildAltTabStyle } from "./shared.js";
 
@@ -96,7 +104,7 @@ class GnomeOverviewColorsImplementation {
           /** @type {MetaWindow} */ metaWindow,
         ) {
           const ret = original.call(this, metaWindow);
-          const preview = this._windows?.[this._windows.length - 1];
+          const preview = getLatestWorkspacePreview(this);
           if (preview) self.#applyOverlay(preview, metaWindow);
           return ret;
         };
@@ -145,43 +153,23 @@ class GnomeOverviewColorsImplementation {
   /** @param {SwitcherPopup} popup */
   #applyAltTabStylesInPopup(popup) {
     const seen = new Set();
-    const buckets = [
-      popup?._items,
-      popup?._appIcons,
-      popup?._windowIcons,
-      popup?._switcherList?._items,
-    ];
 
-    for (const bucket of buckets) {
-      if (!Array.isArray(bucket)) continue;
-      for (const item of bucket) {
-        if (!item || seen.has(item)) continue;
-        seen.add(item);
+    for (const item of getSwitcherItems(popup)) {
+      if (!item || seen.has(item)) continue;
+      seen.add(item);
 
-        const metaWindow =
-          item.window ??
-          item.metaWindow ??
-          item._window ??
-          item.app?.get_windows?.()?.[0] ??
-          item._app?.get_windows?.()?.[0];
+      const metaWindow = getMetaWindowFromSwitcherItem(item);
+      if (!metaWindow) continue;
 
-        if (!metaWindow) continue;
+      const color = this.colorMatcher.getColor(metaWindow);
+      if (!color) continue;
 
-        const color = this.colorMatcher.getColor(metaWindow);
-        if (!color) continue;
+      const widget = getStyledSwitcherWidget(item);
 
-        const widget =
-          typeof item.set_style === "function"
-            ? item
-            : typeof item.actor?.set_style === "function"
-              ? item.actor
-              : null;
-
-        if (widget) {
-          /** @type {{ set_style: (s: string) => void }} */ (widget).set_style(
-            buildAltTabStyle(color),
-          );
-        }
+      if (widget) {
+        /** @type {{ set_style: (s: string) => void }} */ (widget).set_style(
+          buildAltTabStyle(color),
+        );
       }
     }
   }
@@ -193,21 +181,10 @@ class GnomeOverviewColorsImplementation {
     }
     this.overlayPreviews.clear();
 
-    const workspacesDisplay =
-      Main.overview._overview?._controls?._workspacesDisplay;
-    if (!workspacesDisplay) return;
-
-    const workspacesViews = workspacesDisplay._workspacesViews;
-    if (!workspacesViews) return;
-
-    for (const view of workspacesViews) {
-      const workspaces = view?._workspaces;
-      if (!workspaces) continue;
-      for (const ws of workspaces) {
-        if (!ws?._windows) continue;
-        for (const preview of ws._windows)
-          this.#applyOverlay(preview, preview.metaWindow);
-      }
+    for (const preview of getOverviewWindowPreviews(Main.overview)) {
+      const metaWindow = getPreviewMetaWindow(preview);
+      if (!metaWindow) continue;
+      this.#applyOverlay(preview, metaWindow);
     }
   }
 }
