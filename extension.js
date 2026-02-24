@@ -7,12 +7,14 @@ import { ColorMatcher } from "./colorManager.js";
 import * as Overlay from "./overlay.js";
 import { Settings } from "./settings.js";
 import { attachMenu, attachCreateRuleMenu, removeMenu } from "./contextMenu.js";
+import { PatchManager } from "./patchManager.js";
 import { buildAltTabStyle } from "./shared.js";
 
 class GnomeOverviewColorsImplementation {
   /** @param {GioSettings} gioSettings */
   constructor(gioSettings) {
     this.settings = new Settings(gioSettings);
+    this.patchManager = new PatchManager();
     this.colorMatcher = this.#buildMatcher();
     this.refreshScheduled = false;
     this.destroyed = false;
@@ -31,17 +33,7 @@ class GnomeOverviewColorsImplementation {
       },
     );
 
-    const origAddWindowClone = Workspace.prototype._addWindowClone;
-    this.origAddWindowClone = origAddWindowClone;
-    const self = this;
-    Workspace.prototype._addWindowClone = function (
-      /** @type {MetaWindow} */ metaWindow,
-    ) {
-      const ret = origAddWindowClone?.call(this, metaWindow);
-      const preview = this._windows?.[this._windows.length - 1];
-      if (preview) self.#applyOverlay(preview, metaWindow);
-      return ret;
-    };
+    this.#patchWorkspaceAddWindowClone();
 
     this.overviewHidingId = Main.overview.connect("hiding", () => {
       for (const preview of this.overlayPreviews) {
@@ -50,15 +42,13 @@ class GnomeOverviewColorsImplementation {
       }
     });
 
-    this.switcherPatches = [
-      this.#patchSwitcher(AltTab.WindowSwitcherPopup, "WindowSwitcherPopup"),
-      this.#patchSwitcher(AltTab.AppSwitcherPopup, "AppSwitcherPopup"),
-    ];
+    this.#patchSwitcher(AltTab.WindowSwitcherPopup, "WindowSwitcherPopup");
+    this.#patchSwitcher(AltTab.AppSwitcherPopup, "AppSwitcherPopup");
   }
 
   destroy() {
     this.destroyed = true;
-    Workspace.prototype._addWindowClone = this.origAddWindowClone;
+    this.patchManager.restoreAll();
 
     for (const preview of this.overlayPreviews) {
       const destroySignalId = this.previewDestroySignalIds.get(preview);
@@ -70,12 +60,6 @@ class GnomeOverviewColorsImplementation {
       removeMenu(preview);
     }
     this.overlayPreviews.clear();
-
-    for (const { ctor, orig } of this.switcherPatches) {
-      if (orig && ctor?.prototype) {
-        ctor.prototype._init = orig;
-      }
-    }
 
     this.settings.disconnect(this.rulesChangedId);
     this.settings.disconnect(this.overridesChangedId);
@@ -102,21 +86,40 @@ class GnomeOverviewColorsImplementation {
     });
   }
 
+  #patchWorkspaceAddWindowClone() {
+    this.patchManager.patchMethod(
+      Workspace.prototype,
+      "_addWindowClone",
+      (original) => {
+        const self = this;
+        return /** @this {{ _windows?: WindowPreview[] }} */ function (
+          /** @type {MetaWindow} */ metaWindow,
+        ) {
+          const ret = original.call(this, metaWindow);
+          const preview = this._windows?.[this._windows.length - 1];
+          if (preview) self.#applyOverlay(preview, metaWindow);
+          return ret;
+        };
+      },
+    );
+  }
+
   /** @param {{ prototype?: { _init?: Function } }} ctor @param {string} name */
   #patchSwitcher(ctor, name) {
     if (!ctor?.prototype?._init) {
       console.warn(
         `[overview-colors] ${name}._init not found; Alt+Tab coloring disabled`,
       );
-      return { ctor: null, orig: null };
+      return;
     }
-    const orig = ctor.prototype._init;
-    const self = this;
-    ctor.prototype._init = function () {
-      /** @type {Function} */ (orig).apply(this, arguments);
-      self.#applyAltTabStylesInPopup(/** @type {SwitcherPopup} */ (this));
-    };
-    return { ctor, orig };
+
+    this.patchManager.patchMethod(ctor.prototype, "_init", (original) => {
+      const self = this;
+      return /** @this {SwitcherPopup} */ function () {
+        /** @type {Function} */ (original).apply(this, arguments);
+        self.#applyAltTabStylesInPopup(/** @type {SwitcherPopup} */ (this));
+      };
+    });
   }
 
   /** @param {WindowPreview} windowPreview @param {MetaWindow} metaWindow */
