@@ -186,7 +186,7 @@ class GnomeOverviewColorsImplementation {
               ? item.actor
               : null;
 
-        if (widget?.set_style) {
+        if (widget) {
           this.#applyAltTabStyle(
             /** @type {{ set_style: (s: string) => void }} */ (widget),
             color,
