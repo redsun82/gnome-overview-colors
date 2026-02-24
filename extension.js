@@ -14,20 +14,20 @@ class GnomeOverviewColorsImplementation {
   constructor(gioSettings) {
     this.settings = new Settings(gioSettings);
     this.colorMatcher = this.#buildMatcher();
+    this.refreshScheduled = false;
+    this.destroyed = false;
     /** @type {Set<WindowPreview>} */
     this.overlayPreviews = new Set();
     /** @type {WeakMap<WindowPreview, number>} */
     this.previewDestroySignalIds = new WeakMap();
 
     this.rulesChangedId = this.settings.connect("changed::rules", () => {
-      this.colorMatcher = this.#buildMatcher();
-      this.#refreshAllOverlays();
+      this.#scheduleRefresh();
     });
     this.overridesChangedId = this.settings.connect(
       "changed::color-overrides",
       () => {
-        this.colorMatcher = this.#buildMatcher();
-        this.#refreshAllOverlays();
+        this.#scheduleRefresh();
       },
     );
 
@@ -57,6 +57,7 @@ class GnomeOverviewColorsImplementation {
   }
 
   destroy() {
+    this.destroyed = true;
     Workspace.prototype._addWindowClone = this.origAddWindowClone;
 
     for (const preview of this.overlayPreviews) {
@@ -86,6 +87,19 @@ class GnomeOverviewColorsImplementation {
       this.settings.getRules(),
       this.settings.getOverrides(),
     );
+  }
+
+  #scheduleRefresh() {
+    if (this.refreshScheduled || this.destroyed) return;
+    this.refreshScheduled = true;
+
+    Promise.resolve().then(() => {
+      this.refreshScheduled = false;
+      if (this.destroyed) return;
+
+      this.colorMatcher = this.#buildMatcher();
+      this.#refreshAllOverlays();
+    });
   }
 
   /** @param {{ prototype?: { _init?: Function } }} ctor @param {string} name */

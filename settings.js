@@ -69,7 +69,7 @@ export class Settings {
 
   /** @param {Rule[]} rules */
   setRules(rules) {
-    this._s.set_string("rules", JSON.stringify(sanitizeRules(rules)));
+    this.#setJsonIfChanged("rules", sanitizeRules(rules));
   }
 
   /** @returns {Record<string, string>} */
@@ -83,19 +83,21 @@ export class Settings {
     if (!normalizedHex || !key) return;
 
     const overrides = this.getOverrides();
+    if (overrides[key] === normalizedHex) return;
     overrides[key] = normalizedHex;
-    this._s.set_string("color-overrides", JSON.stringify(overrides));
+    this.#setJsonIfChanged("color-overrides", overrides);
   }
 
   /** @param {string} key */
   clearOverride(key) {
     const overrides = this.getOverrides();
+    if (!(key in overrides)) return;
     delete overrides[key];
-    this._s.set_string("color-overrides", JSON.stringify(overrides));
+    this.#setJsonIfChanged("color-overrides", overrides);
   }
 
   clearAllOverrides() {
-    this._s.set_string("color-overrides", "{}");
+    this.#setJsonIfChanged("color-overrides", {});
   }
 
   /**
@@ -124,5 +126,15 @@ export class Settings {
     } catch {
       return fallback;
     }
+  }
+
+  /**
+   * @param {string} key
+   * @param {unknown} value
+   */
+  #setJsonIfChanged(key, value) {
+    const next = JSON.stringify(value);
+    if (this._s.get_string(key) === next) return;
+    this._s.set_string(key, next);
   }
 }

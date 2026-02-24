@@ -106,10 +106,9 @@ export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
         hexpand: true,
       });
       classEntry.connect("changed", () => {
-        const current = settings.getRules();
-        if (current[index]) {
-          current[index].wm_class = classEntry.get_text();
-          settings.setRules(current);
+        if (rules[index]) {
+          rules[index].wm_class = classEntry.get_text();
+          settings.setRules(rules);
           row.title = classEntry.get_text() || "(empty WM_CLASS)";
         }
       });
@@ -125,10 +124,9 @@ export default class GnomeOverviewColorsPrefs extends ExtensionPreferences {
         hexpand: true,
       });
       titleEntry.connect("changed", () => {
-        const current = settings.getRules();
-        if (current[index]) {
-          current[index].title_pattern = titleEntry.get_text();
-          settings.setRules(current);
+        if (rules[index]) {
+          rules[index].title_pattern = titleEntry.get_text();
+          settings.setRules(rules);
           row.subtitle = titleEntry.get_text() || "(empty title pattern)";
         }
       });
