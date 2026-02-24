@@ -1,3 +1,5 @@
+import { makeOverrideKey } from "./shared.js";
+
 /** @param {string} str */
 function djb2(str) {
   let hash = 5381;
@@ -101,7 +103,7 @@ export class ColorMatcher {
     if (!match) return null;
 
     const { identity, wmClass } = match;
-    const key = `${wmClass}:${identity}`;
+    const key = makeOverrideKey(wmClass, identity);
 
     if (this._overrides[key])
       return { ...parseHex(this._overrides[key]), identity, wmClass };

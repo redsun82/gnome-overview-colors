@@ -7,6 +7,7 @@ import { ColorMatcher } from "./colorManager.js";
 import * as Overlay from "./overlay.js";
 import { Settings } from "./settings.js";
 import { attachMenu, attachCreateRuleMenu, removeMenu } from "./contextMenu.js";
+import { buildAltTabStyle } from "./shared.js";
 
 class GnomeOverviewColorsImplementation {
   /** @param {GioSettings} gioSettings */
@@ -113,23 +114,6 @@ class GnomeOverviewColorsImplementation {
     }
   }
 
-  /**
-   * Style an Alt+Tab switcher item with a colored tint + border.
-   * The preview is a Clutter.Clone that cannot host overlay children,
-   * so we style the item container directly.
-   * @param {{ set_style: (style: string) => void }} widget
-   * @param {{r: number, g: number, b: number}} color
-   */
-  #applyAltTabStyle(widget, color) {
-    widget.set_style(
-      [
-        `background-color: rgba(${color.r}, ${color.g}, ${color.b}, 0.28)`,
-        `border: 2px solid rgba(${color.r}, ${color.g}, ${color.b}, 0.85)`,
-        "border-radius: 12px",
-      ].join("; "),
-    );
-  }
-
   /** @param {SwitcherPopup} popup */
   #applyAltTabStylesInPopup(popup) {
     const seen = new Set();
@@ -166,9 +150,8 @@ class GnomeOverviewColorsImplementation {
               : null;
 
         if (widget) {
-          this.#applyAltTabStyle(
-            /** @type {{ set_style: (s: string) => void }} */ (widget),
-            color,
+          /** @type {{ set_style: (s: string) => void }} */ (widget).set_style(
+            buildAltTabStyle(color),
           );
         }
       }

@@ -1,25 +1,13 @@
 import Clutter from "gi://Clutter";
 import St from "gi://St";
 
+import { buildOverlayStyle } from "./shared.js";
+
 /** @type {WeakMap<WindowPreview, StWidget>} */
 const _overlays = new WeakMap();
 
 /** @type {WeakMap<StWidget, {container: ClutterActor, signalIds: number[]}>} */
 const _scaleSync = new WeakMap();
-
-/** @param {number} r @param {number} g @param {number} b @param {number} [emphasis] */
-function buildStyle(r, g, b, emphasis = 0) {
-  const tintAlpha = 0.12 + 0.05 * emphasis;
-  const auraBlur = 20 + 8 * emphasis;
-  const auraSpread = 6 + 3 * emphasis;
-  const auraAlpha = 0.45 + 0.15 * emphasis;
-
-  return [
-    `background-color: rgba(${r}, ${g}, ${b}, ${tintAlpha})`,
-    `box-shadow: 0 0 ${auraBlur}px ${auraSpread}px rgba(${r}, ${g}, ${b}, ${auraAlpha})`,
-    `border-radius: 12px`,
-  ].join("; ");
-}
 
 /**
  * @param {StWidget} overlay
@@ -33,7 +21,7 @@ function _syncOverlayScale(overlay, container, color) {
     // WindowPreview hover bump is subtle; normalize to [0..1] for style emphasis.
     const hoverScale = Math.max(container.scale_x, container.scale_y);
     const emphasis = Math.max(0, Math.min(1, (hoverScale - 1) / 0.06));
-    overlay.set_style(buildStyle(color.r, color.g, color.b, emphasis));
+    overlay.set_style(buildOverlayStyle(color, emphasis));
   };
 
   // Match WindowPreview hover growth, which is animated via actor scale.
@@ -68,7 +56,7 @@ export function createOverlay(windowPreview, color) {
   if (!container) return;
 
   const overlay = new St.Widget({
-    style: buildStyle(color.r, color.g, color.b),
+    style: buildOverlayStyle(color),
     reactive: false,
   });
 

@@ -5,6 +5,7 @@ import * as Main from "resource:///org/gnome/shell/ui/main.js";
 
 import { ColorMatcher, parseHex } from "./colorManager.js";
 import * as Overlay from "./overlay.js";
+import { escapeRegexLiteral, makeOverrideKey, PALETTE } from "./shared.js";
 
 /** @type {WeakMap<WindowPreview, PopupMenu>} */
 const _menus = new WeakMap();
@@ -62,24 +63,6 @@ function _connectSecondaryClick(windowPreview, menu, anchor) {
   );
 }
 
-const PALETTE = [
-  { label: "Red", hex: "#e84040" },
-  { label: "Orange", hex: "#e88830" },
-  { label: "Yellow", hex: "#d4c030" },
-  { label: "Green", hex: "#40b840" },
-  { label: "Teal", hex: "#30b8a0" },
-  { label: "Cyan", hex: "#30b0e0" },
-  { label: "Blue", hex: "#4070e0" },
-  { label: "Purple", hex: "#8050d0" },
-  { label: "Magenta", hex: "#c040b0" },
-  { label: "Pink", hex: "#e06088" },
-];
-
-/** @param {string} str */
-function _escapeRegex(str) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 /**
  * Create a PopupMenu anchored to `windowPreview`, register it in tracking maps,
  * and wire up secondary-click + destroy cleanup.
@@ -112,7 +95,7 @@ function _createMenu(windowPreview) {
  */
 export function attachMenu(windowPreview, metaWindow, colorInfo, settings) {
   const { identity, wmClass } = colorInfo;
-  const overrideKey = `${wmClass}:${identity}`;
+  const overrideKey = makeOverrideKey(wmClass, identity);
 
   const menu = _createMenu(windowPreview);
 
@@ -184,7 +167,7 @@ export function attachCreateRuleMenu(windowPreview, metaWindow, settings) {
     }),
   );
   const classEntry = new St.Entry({
-    text: _escapeRegex(wmClass),
+    text: escapeRegexLiteral(wmClass),
     hint_text: "WM_CLASS regex",
     can_focus: true,
     x_expand: true,
@@ -202,7 +185,7 @@ export function attachCreateRuleMenu(windowPreview, metaWindow, settings) {
     }),
   );
   const titleEntry = new St.Entry({
-    text: `(${_escapeRegex(title)})`,
+    text: `(${escapeRegexLiteral(title)})`,
     hint_text: "Capture group = color key; empty = same color for all",
     can_focus: true,
     x_expand: true,

@@ -49,13 +49,13 @@ Wayland).
 
 ### Other Makefile targets
 
-| Target        | Description                                                                        |
-| ------------- | ---------------------------------------------------------------------------------- |
-| `dev-install` | Compile schema + symlink source dir for development                                |
-| `uninstall`   | Remove the extension                                                               |
-| `pack`        | Build a distributable `.zip`                                                       |
-| `schema`      | Compile the GSettings schema (run automatically by `install`/`dev-install`/`pack`) |
-| `clean`       | Remove the built `.zip`                                                            |
+| Target        | Description                                                       |
+| ------------- | ----------------------------------------------------------------- |
+| `dev-install` | Compile schema + symlink source dir for development               |
+| `uninstall`   | Remove the extension                                              |
+| `pack`        | Build a distributable `.zip`                                      |
+| `schema`      | Compile the GSettings schema (run automatically by `dev-install`) |
+| `clean`       | Remove the built `.zip`                                           |
 
 ## Configuration
 
